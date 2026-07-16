@@ -1,0 +1,38 @@
+name: Update Dev.to Article Links
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (report matches without updating)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  update-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run link replacement script
+        run: node scripts/devto-replace-links.mjs
+        env:
+          DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
+          DRY_RUN: ${{ inputs.dry_run }}
+
+      - name: Upload backup artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devto-link-update-backup
+          path: devto-link-update-backup.json
+          if-no-files-found: ignore
+          retention-days: 90
