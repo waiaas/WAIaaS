@@ -9,7 +9,7 @@ External directory registration materials and platform-specific submission check
 - **Name:** WAIaaS (Wallet-as-a-Service for AI Agents)
 - **One-liner:** Self-hosted wallet daemon that lets AI agents execute blockchain transactions with policy-enforced security
 - **Website:** https://waiaas.ai
-- **GitHub:** https://github.com/minhoyoo-iotrust/WAIaaS
+- **GitHub:** https://github.com/waiaas/WAIaaS
 - **npm:** https://www.npmjs.com/package/@waiaas/cli
 - **Docker:** https://hub.docker.com/u/waiaas
 - **License:** MIT
@@ -140,7 +140,7 @@ AI wallet, MCP, wallet-as-a-service, self-hosted, crypto, DeFi, blockchain, AI a
 - [ ] Tool count: 42
 - [ ] Category: Crypto / Finance
 - [ ] Description: Use Short template
-- [ ] README link: https://github.com/minhoyoo-iotrust/WAIaaS
+- [ ] README link: https://github.com/waiaas/WAIaaS
 
 #### glama.ai/mcp
 - [ ] Server name: @waiaas/mcp
@@ -234,7 +234,7 @@ AI wallet, MCP, wallet-as-a-service, self-hosted, crypto, DeFi, blockchain, AI a
 - **Also shows:** npm and Docker alternative installation methods
 
 ### GitHub Releases
-- **URL:** https://github.com/minhoyoo-iotrust/WAIaaS/releases
+- **URL:** https://github.com/waiaas/WAIaaS/releases
 - **Tag pattern:** `desktop-v*` (e.g., `desktop-v0.1.0`)
 - **Artifacts:** Platform-specific installers + Ed25519 signatures for auto-update
 - **CI:** `.github/workflows/desktop-release.yml` builds and publishes on tag push

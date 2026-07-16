@@ -57,7 +57,7 @@ waiaas quickset
 
 ## Links
 
-- GitHub: https://github.com/minhoyoo-iotrust/WAIaaS
+- GitHub: https://github.com/waiaas/WAIaaS
 - npm: https://www.npmjs.com/package/@waiaas/cli
 - Docker: https://hub.docker.com/r/waiaas/daemon
-- Deployment Guide: https://github.com/minhoyoo-iotrust/WAIaaS/blob/main/docs/deployment.md
+- Deployment Guide: https://github.com/waiaas/WAIaaS/blob/main/docs/deployment.md
