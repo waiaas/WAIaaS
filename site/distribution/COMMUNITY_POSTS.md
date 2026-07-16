@@ -49,7 +49,7 @@ Still working on: CoW Protocol integration for intent-based trading, Morpho lend
 
 Would love feedback, especially on the security model and the MCP tool design.
 
-GitHub: https://github.com/minhoyoo-iotrust/WAIaaS
+GitHub: https://github.com/waiaas/WAIaaS
 
 ---
 
@@ -86,7 +86,7 @@ npx @waiaas/cli start
 
 Open source (MIT), written in TypeScript. Works with Claude via MCP (42 tools) or any agent via REST API.
 
-- GitHub: https://github.com/minhoyoo-iotrust/WAIaaS
+- GitHub: https://github.com/waiaas/WAIaaS
 - Website: https://waiaas.ai
 - npm: https://www.npmjs.com/package/@waiaas/cli
 
@@ -132,7 +132,7 @@ I built an MCP server that gives Claude full crypto wallet capabilities: 42 tool
 
 Run `npx @waiaas/cli init && npx @waiaas/cli start` first to set up the daemon.
 
-Open source (MIT): https://github.com/minhoyoo-iotrust/WAIaaS
+Open source (MIT): https://github.com/waiaas/WAIaaS
 
 The MCP integration feels natural -- you just ask Claude to "check my ETH balance" or "swap 50 USDC for ETH on Base" and it uses the right tools.
 
@@ -175,4 +175,4 @@ npx @waiaas/cli start
 
 The Admin UI gives you real-time control: wallet management, policy configuration (spending limits, token whitelists), session monitoring, and transaction history. Everything runs on your hardware.
 
-MIT licensed: https://github.com/minhoyoo-iotrust/WAIaaS
+MIT licensed: https://github.com/waiaas/WAIaaS

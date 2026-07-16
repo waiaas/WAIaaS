@@ -28,7 +28,7 @@ WAIaaS Desktop App은 **Tauri 2** 기반의 네이티브 데스크톱 애플리�
 
 GitHub Releases 페이지에서 `desktop-v*` 태그가 붙은 최신 릴리스를 다운로드합니다.
 
-**릴리스 페이지**: [https://github.com/minhoyoo-iotrust/WAIaaS/releases](https://github.com/minhoyoo-iotrust/WAIaaS/releases)
+**릴리스 페이지**: [https://github.com/waiaas/WAIaaS/releases](https://github.com/waiaas/WAIaaS/releases)
 
 `desktop-v` 접두사가 붙은 릴리스를 찾아 자신의 OS에 맞는 아티팩트를 다운로드하세요.
 
@@ -251,7 +251,7 @@ WAIaaS Desktop은 **Ed25519 서명 검증** 기반의 안전한 자동 업데이
 **업데이트 엔드포인트**:
 
 ```
-https://github.com/minhoyoo-iotrust/WAIaaS/releases/latest/download/latest.json
+https://github.com/waiaas/WAIaaS/releases/latest/download/latest.json
 ```
 
 ### Ed25519 서명 검증
@@ -265,7 +265,7 @@ https://github.com/minhoyoo-iotrust/WAIaaS/releases/latest/download/latest.json
 
 자동 업데이트가 동작하지 않거나 특정 버전을 설치하려면:
 
-1. [GitHub Releases](https://github.com/minhoyoo-iotrust/WAIaaS/releases) 페이지에서 원하는 버전의 아티팩트를 다운로드합니다.
+1. [GitHub Releases](https://github.com/waiaas/WAIaaS/releases) 페이지에서 원하는 버전의 아티팩트를 다운로드합니다.
 2. 기존 앱을 덮어쓰기 설치합니다:
    - **macOS**: 새 `.dmg`에서 Applications 폴더로 드래그 (기존 앱 덮어쓰기)
    - **Windows**: 새 `.msi` 실행 (기존 설치 위에 덮어쓰기)

@@ -253,7 +253,7 @@ Yes. Any AI model or application that implements the MCP client protocol can use
 ## Resources
 
 - **Documentation**: [Architecture](/docs/architecture/) | [Security Model](/docs/security-model/) | [API Reference](/docs/api-reference/)
-- **GitHub**: [github.com/minhoyoo-iotrust/WAIaaS](https://github.com/minhoyoo-iotrust/WAIaaS)
+- **GitHub**: [github.com/waiaas/WAIaaS](https://github.com/waiaas/WAIaaS)
 - **npm**: [@waiaas/cli](https://www.npmjs.com/package/@waiaas/cli) | [@waiaas/mcp](https://www.npmjs.com/package/@waiaas/mcp) | [@waiaas/sdk](https://www.npmjs.com/package/@waiaas/sdk)
 - **Docker**: [waiaas/daemon](https://hub.docker.com/r/waiaas/daemon)
 

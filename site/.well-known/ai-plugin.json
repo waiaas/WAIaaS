@@ -9,9 +9,9 @@
   },
   "api": {
     "type": "openapi",
-    "url": "https://github.com/minhoyoo-iotrust/WAIaaS/blob/main/docs/api-reference.md"
+    "url": "https://github.com/waiaas/WAIaaS/blob/main/docs/api-reference.md"
   },
   "logo_url": "https://waiaas.ai/logo.png",
   "contact_email": "",
-  "legal_info_url": "https://github.com/minhoyoo-iotrust/WAIaaS/blob/main/LICENSE"
+  "legal_info_url": "https://github.com/waiaas/WAIaaS/blob/main/LICENSE"
 }
