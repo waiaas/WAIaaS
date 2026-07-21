@@ -11,6 +11,11 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 
+// @waiaas/daemon is hoisted-mocked so start.ts's dynamic import() always resolves to
+// the mock regardless of timing. Per-test vi.doMock + dynamic import raced in CI and
+// flaked the startCommand tests; a top-level vi.mock is deterministic.
+vi.mock('@waiaas/daemon', () => ({ startDaemon: vi.fn() }));
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -232,11 +237,11 @@ describe('startCommand', () => {
     }
   }
 
-  beforeEach(() => {
-    // Reset module registry so each test's vi.doMock('@waiaas/daemon') applies to a
-    // fresh start.js import -- a cached module can shadow the mock and flake in CI.
-    vi.resetModules();
+  beforeEach(async () => {
     testDir = makeTmpDir();
+    // Reset the hoisted @waiaas/daemon mock so each test sets its own behavior.
+    const { startDaemon } = await import('@waiaas/daemon');
+    vi.mocked(startDaemon).mockReset();
     // Mock process.exit to throw -- simulates execution halt
     vi.spyOn(process, 'exit').mockImplementation(((code: number) => {
       throw new ExitError(code);
@@ -254,18 +259,13 @@ describe('startCommand', () => {
   it('calls startDaemon with dataDir and password', async () => {
     process.env['WAIAAS_MASTER_PASSWORD'] = 'test-password-123';
 
-    const mockStartDaemon = vi.fn().mockResolvedValue({});
-    vi.doMock('@waiaas/daemon', () => ({
-      startDaemon: mockStartDaemon,
-    }));
+    const { startDaemon } = await import('@waiaas/daemon');
+    vi.mocked(startDaemon).mockResolvedValue(undefined as never);
 
-    // Re-import to pick up mock
     const { startCommand } = await import('../commands/start.js');
     await startCommand(testDir);
 
-    expect(mockStartDaemon).toHaveBeenCalledWith(testDir, 'test-password-123');
-
-    vi.doUnmock('@waiaas/daemon');
+    expect(startDaemon).toHaveBeenCalledWith(testDir, 'test-password-123');
   });
 
   it('exits with error if daemon already running (PID file exists, process alive)', async () => {
@@ -285,10 +285,8 @@ describe('startCommand', () => {
   it('prints error and exits 1 on startDaemon failure', async () => {
     process.env['WAIAAS_MASTER_PASSWORD'] = 'test-password-123';
 
-    const mockStartDaemon = vi.fn().mockRejectedValue(new Error('DB init failed'));
-    vi.doMock('@waiaas/daemon', () => ({
-      startDaemon: mockStartDaemon,
-    }));
+    const { startDaemon } = await import('@waiaas/daemon');
+    vi.mocked(startDaemon).mockRejectedValue(new Error('DB init failed'));
 
     const { startCommand } = await import('../commands/start.js');
 
@@ -297,19 +295,15 @@ describe('startCommand', () => {
     expect(mockStderr).toHaveBeenCalledWith(
       expect.stringContaining('DB init failed'),
     );
-
-    vi.doUnmock('@waiaas/daemon');
   });
 
   it('outputs port conflict hint when EADDRINUSE', async () => {
     process.env['WAIAAS_MASTER_PASSWORD'] = 'test-password-123';
 
-    const mockStartDaemon = vi.fn().mockRejectedValue(
+    const { startDaemon } = await import('@waiaas/daemon');
+    vi.mocked(startDaemon).mockRejectedValue(
       new Error('Port 3100 is already in use. Try a different port or stop the other process.'),
     );
-    vi.doMock('@waiaas/daemon', () => ({
-      startDaemon: mockStartDaemon,
-    }));
 
     const { startCommand } = await import('../commands/start.js');
 
@@ -318,8 +312,6 @@ describe('startCommand', () => {
     const allStderr = mockStderr.mock.calls.map((c) => c[0]).join('\n');
     expect(allStderr).toContain('already in use');
     expect(allStderr).toContain('lsof');
-
-    vi.doUnmock('@waiaas/daemon');
   });
 
   it('does not print Step logs on successful start (daemon uses console.debug)', async () => {
@@ -327,10 +319,8 @@ describe('startCommand', () => {
 
     const mockStdout = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const mockStartDaemon = vi.fn().mockResolvedValue({});
-    vi.doMock('@waiaas/daemon', () => ({
-      startDaemon: mockStartDaemon,
-    }));
+    const { startDaemon } = await import('@waiaas/daemon');
+    vi.mocked(startDaemon).mockResolvedValue(undefined as never);
 
     const { startCommand } = await import('../commands/start.js');
     await startCommand(testDir);
@@ -345,7 +335,6 @@ describe('startCommand', () => {
     expect(allStdout).not.toContain('Step 6:');
 
     mockStdout.mockRestore();
-    vi.doUnmock('@waiaas/daemon');
   });
 });
 
