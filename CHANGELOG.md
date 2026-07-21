@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.16.0](https://github.com/minhoyoo-iotrust/WAIaaS/compare/v2.16.0-rc...v2.16.0) (2026-04-21)
+
+
+### Bug Fixes
+
+* promote v2.16.0-rc to stable 2.16.0 ([852f4e6](https://github.com/minhoyoo-iotrust/WAIaaS/commit/852f4e6036b52e093f1682e508fc5b8fc93507ea))
+* promote v2.16.0-rc to stable 2.16.0 ([f507fbe](https://github.com/minhoyoo-iotrust/WAIaaS/commit/f507fbef7a437a6897fd0434aaad76e8e1547df7))
+
+## [2.16.0-rc](https://github.com/minhoyoo-iotrust/WAIaaS/compare/v2.15.0...v2.16.0-rc) (2026-04-21)
+
+
+### Features
+
+* **push-relay:** Pushwoosh extra_fields configuration support ([ca989f3](https://github.com/minhoyoo-iotrust/WAIaaS/commit/ca989f362ca790ddc05981ed329d60af13593326))
+* **push-relay:** Pushwoosh extra_fields for v2.16.0-rc ([de914be](https://github.com/minhoyoo-iotrust/WAIaaS/commit/de914beb35d68043f4544be5efa54d36360e1ac9))
+
 ## [2.15.0](https://github.com/minhoyoo-iotrust/WAIaaS/compare/v2.15.0...v2.15.0) (2026-04-20)
 
 

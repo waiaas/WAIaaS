@@ -1,6 +1,6 @@
 {
   "name": "@waiaas/shared",
-  "version": "2.15.0",
+  "version": "2.16.0",
   "description": "WAIaaS shared constants — pure TypeScript, no native dependencies",
   "license": "MIT",
   "type": "module",

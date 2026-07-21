@@ -1,6 +1,6 @@
 {
   "name": "@waiaas/wallet-sdk",
-  "version": "2.15.0",
+  "version": "2.16.0",
   "description": "WAIaaS Wallet Signing SDK - integrate wallet apps with WAIaaS signing protocol",
   "license": "MIT",
   "type": "module",

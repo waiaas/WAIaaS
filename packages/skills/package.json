@@ -1,6 +1,6 @@
 {
   "name": "@waiaas/skills",
-  "version": "2.15.0",
+  "version": "2.16.0",
   "description": "WAIaaS skill files for AI agents - install via npx @waiaas/skills add <name>",
   "license": "MIT",
   "type": "module",
