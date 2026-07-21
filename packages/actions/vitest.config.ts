@@ -11,6 +11,11 @@ export default defineConfig({
       },
     },
     forceExit: true,
+    // Heavy SDK modules (@solana/web3, kamino) can take several seconds to load under
+    // CI fork contention; the 5s default timed out provider-registration/coverage tests
+    // that pass in ~0.4s locally. Raise timeouts to absorb CI cold-load variance.
+    testTimeout: 20000,
+    hookTimeout: 20000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary', 'json'],

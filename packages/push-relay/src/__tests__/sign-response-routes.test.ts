@@ -293,4 +293,131 @@ describe('POST /v1/push', () => {
 
     expect(res.status).toBe(404);
   });
+
+  it('uses fallback title from category when payload.title is absent', async () => {
+    registry.register('dcent', 'fallback-token', 'ios');
+    const device = registry.getByPushToken('fallback-token')!;
+    const subToken = device.subscriptionToken!;
+
+    const res = await app.request('/v1/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscriptionToken: subToken,
+        category: 'notification',
+        payload: { requestId: 'req-3' },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const sendCall = vi.mocked(mockProvider.send).mock.calls[0]!;
+    expect(sendCall[1].title).toBe('notification');
+    expect(sendCall[1].body).toBe('WAIaaS notification');
+  });
+
+  it('uses sign_request fallback body when category is sign_request and body is absent', async () => {
+    registry.register('dcent', 'sign-fallback-token', 'ios');
+    const device = registry.getByPushToken('sign-fallback-token')!;
+    const subToken = device.subscriptionToken!;
+
+    const res = await app.request('/v1/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscriptionToken: subToken,
+        category: 'sign_request',
+        payload: { requestId: 'req-4' },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const sendCall = vi.mocked(mockProvider.send).mock.calls[0]!;
+    expect(sendCall[1].body).toBe('Transaction approval required');
+  });
+
+  it('applies transformer when provided', async () => {
+    registry.close();
+    // Reopen registry with a fresh DB for this test
+    registry = new DeviceRegistry(join(tmpDir, 'test2.db'));
+    const transformerApp = new Hono();
+    const transformedRoutes = createSignResponseRoutes({
+      registry,
+      provider: mockProvider,
+      apiKey: API_KEY,
+      transformer: {
+        transform: (payload) => ({
+          ...payload,
+          title: `[Transformed] ${payload.title}`,
+        }),
+      },
+    });
+    transformerApp.route('/', transformedRoutes);
+
+    registry.register('dcent', 'transform-token', 'ios');
+    const device = registry.getByPushToken('transform-token')!;
+    const subToken = device.subscriptionToken!;
+
+    const res = await transformerApp.request('/v1/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscriptionToken: subToken,
+        category: 'sign_request',
+        payload: { title: 'Sign TX', body: 'Please sign', requestId: 'req-5' },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const sendCall = vi.mocked(mockProvider.send).mock.calls[0]!;
+    expect(sendCall[1].title).toBe('[Transformed] Sign TX');
+  });
+
+  it('serializes non-string payload values as JSON in data', async () => {
+    registry.register('dcent', 'json-token', 'ios');
+    const device = registry.getByPushToken('json-token')!;
+    const subToken = device.subscriptionToken!;
+
+    const res = await app.request('/v1/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscriptionToken: subToken,
+        category: 'notification',
+        payload: { title: 'Test', body: 'Body', nested: { key: 'value' }, num: 42 },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const sendCall = vi.mocked(mockProvider.send).mock.calls[0]!;
+    expect(sendCall[1].data.nested).toBe('{"key":"value"}');
+    expect(sendCall[1].data.num).toBe('42');
+    expect(sendCall[1].data.title).toBe('Test');
+  });
+});
+
+describe('GET /v1/sign-response/:requestId (timeout parsing)', () => {
+  it('clamps timeout above 120 to 120 (returns immediate when response exists)', async () => {
+    // Verifies the Math.min(x, 120) branch by sending timeout=999
+    // Response is pre-stored so it returns immediately without waiting
+    const requestId = '550e8400-e29b-41d4-a716-446655440002';
+    registry.saveSignResponse(requestId, JSON.stringify({ action: 'approve' }), 300);
+    const res = await app.request(`/v1/sign-response/${requestId}?timeout=999`);
+    expect(res.status).toBe(200);
+  });
+
+  it('handles NaN timeout by falling back to 30 (returns immediate when response exists)', async () => {
+    // parseInt('abc', 10) => NaN, NaN || 30 => 30
+    const requestId = '550e8400-e29b-41d4-a716-446655440003';
+    registry.saveSignResponse(requestId, JSON.stringify({ action: 'approve' }), 300);
+    const res = await app.request(`/v1/sign-response/${requestId}?timeout=abc`);
+    expect(res.status).toBe(200);
+  });
+
+  it('uses default timeout when no timeout param is given (returns immediate when response exists)', async () => {
+    // timeoutParam is undefined => '' || '30' => '30'
+    const requestId = '550e8400-e29b-41d4-a716-446655440004';
+    registry.saveSignResponse(requestId, JSON.stringify({ action: 'approve' }), 300);
+    const res = await app.request(`/v1/sign-response/${requestId}`);
+    expect(res.status).toBe(200);
+  });
 });

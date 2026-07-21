@@ -45,10 +45,10 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@hono/node-server": "^1.12.0",
+    "@hono/node-server": "^1.19.10",
     "@waiaas/core": "workspace:*",
     "better-sqlite3": "^11.5.0",
-    "hono": "^4.5.0",
+    "hono": "^4.12.12",
     "smol-toml": "^1.3.0",
     "zod": "^3.24.0"
   },

@@ -251,5 +251,10 @@ describe('NFT utility functions', () => {
       expect(() => parseNftTokenId('ABCD')).toThrow('Invalid NFTokenID');
       expect(() => parseNftTokenId('')).toThrow('Invalid NFTokenID');
     });
+
+    it('throws for null/undefined NFTokenID', () => {
+      expect(() => parseNftTokenId(null as unknown as string)).toThrow('Invalid NFTokenID');
+      expect(() => parseNftTokenId(undefined as unknown as string)).toThrow('Invalid NFTokenID');
+    });
   });
 });

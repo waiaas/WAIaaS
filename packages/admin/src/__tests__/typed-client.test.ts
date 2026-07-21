@@ -143,4 +143,42 @@ describe('typed-client', () => {
 
     expect(mockResetInactivityTimer).toHaveBeenCalledTimes(1);
   });
+
+  it('Test 11: Non-JSON error body falls back to UNKNOWN code', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response('Internal Server Error', {
+        status: 500,
+        headers: { 'content-type': 'text/plain' },
+      }),
+    );
+
+    try {
+      await api.GET('/v1/admin/status');
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      const apiErr = err as InstanceType<typeof ApiError>;
+      expect(apiErr.code).toBe('UNKNOWN');
+      expect(apiErr.serverMessage).toBe('Unknown error');
+    }
+  });
+
+  it('Test 12: JSON error body without code/message uses defaults', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: true }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    try {
+      await api.GET('/v1/admin/status');
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      const apiErr = err as InstanceType<typeof ApiError>;
+      expect(apiErr.code).toBe('UNKNOWN');
+      expect(apiErr.serverMessage).toBe('Unknown error');
+    }
+  });
 });

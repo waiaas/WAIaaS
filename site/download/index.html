@@ -40,13 +40,13 @@
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "macOS, Windows, Linux",
     "url": "https://waiaas.ai/download/",
-    "downloadUrl": "https://github.com/minhoyoo-iotrust/WAIaaS/releases?q=desktop-v",
+    "downloadUrl": "https://github.com/waiaas/WAIaaS/releases?q=desktop-v",
     "author": {
       "@type": "Organization",
       "name": "WAIaaS",
-      "url": "https://github.com/minhoyoo-iotrust/WAIaaS"
+      "url": "https://github.com/waiaas/WAIaaS"
     },
-    "license": "https://github.com/minhoyoo-iotrust/WAIaaS/blob/main/LICENSE",
+    "license": "https://github.com/waiaas/WAIaaS/blob/main/LICENSE",
     "offers": {
       "@type": "Offer",
       "price": "0",
@@ -382,7 +382,7 @@
     <div class="container">
       <a href="/" class="logo" style="text-decoration:none">WAIaaS</a>
       <div class="nav-links">
-        <a href="https://github.com/minhoyoo-iotrust/WAIaaS">GitHub</a>
+        <a href="https://github.com/waiaas/WAIaaS">GitHub</a>
         <a href="https://www.npmjs.com/package/@waiaas/cli">npm</a>
         <a href="https://hub.docker.com/u/waiaas">Docker</a>
         <a href="/download/" class="active">Download</a>
@@ -444,7 +444,7 @@
     <section class="download-fallback" id="download-fallback">
       <div class="fallback-box">
         <p>Could not load release information automatically.</p>
-        <a href="https://github.com/minhoyoo-iotrust/WAIaaS/releases?q=desktop-v">Download from GitHub Releases</a>
+        <a href="https://github.com/waiaas/WAIaaS/releases?q=desktop-v">Download from GitHub Releases</a>
       </div>
     </section>
 
@@ -529,7 +529,7 @@ waiaas start<button class="copy-btn" onclick="copyCode('code-npm')">copy</button
         }
       } catch (e) { /* ignore localStorage errors */ }
 
-      return fetch('https://api.github.com/repos/minhoyoo-iotrust/WAIaaS/releases')
+      return fetch('https://api.github.com/repos/waiaas/WAIaaS/releases')
         .then(function(res) {
           if (!res.ok) throw new Error('GitHub API ' + res.status);
           return res.json();
@@ -600,7 +600,7 @@ waiaas start<button class="copy-btn" onclick="copyCode('code-npm')">copy</button
         ctaMeta.textContent = version + '  \u00B7  ' + meta.altLabel + '  \u00B7  ' + formatSize(primaryAsset.size);
       } else {
         // No primary asset: point to GitHub releases
-        ctaBtn.href = 'https://github.com/minhoyoo-iotrust/WAIaaS/releases/tag/' + release.tag_name;
+        ctaBtn.href = 'https://github.com/waiaas/WAIaaS/releases/tag/' + release.tag_name;
         ctaIcon.textContent = '\u2B07';
         ctaText.textContent = 'View Downloads';
         ctaMeta.textContent = version;
@@ -610,7 +610,7 @@ waiaas start<button class="copy-btn" onclick="copyCode('code-npm')">copy</button
       document.getElementById('download-meta').innerHTML =
         '<span class="version">' + version + '</span>' +
         '<span class="release-date">' + date + '</span>' +
-        '<span class="github-link">\u00B7 <a href="https://github.com/minhoyoo-iotrust/WAIaaS/releases/tag/' + release.tag_name + '">View on GitHub</a></span>';
+        '<span class="github-link">\u00B7 <a href="https://github.com/waiaas/WAIaaS/releases/tag/' + release.tag_name + '">View on GitHub</a></span>';
 
       // Platform cards
       var platforms = ['macos', 'windows', 'linux'];

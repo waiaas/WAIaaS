@@ -201,4 +201,205 @@ describe('parseRippleTransaction', () => {
     expect(result.operations[0]!.to).toBe('rEuropeanBank');
     expect(result.operations[0]!.token).toBe('EUR.rEuropeanBank');
   });
+
+  // -- IOU edge cases for branch coverage --
+
+  it('handles IOU Payment with missing currency field', () => {
+    const rawTx = JSON.stringify({
+      TransactionType: 'Payment',
+      Account: 'rSender',
+      Destination: 'rReceiver',
+      Amount: {
+        // No currency
+        issuer: 'rIssuer',
+        value: '100',
+      },
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('TOKEN_TRANSFER');
+    expect(result.operations[0]!.token).toBe('unknown.rIssuer');
+  });
+
+  it('handles IOU Payment with missing issuer field', () => {
+    const rawTx = JSON.stringify({
+      TransactionType: 'Payment',
+      Account: 'rSender',
+      Destination: 'rReceiver',
+      Amount: {
+        currency: 'USD',
+        // No issuer
+        value: '100',
+      },
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('TOKEN_TRANSFER');
+    expect(result.operations[0]!.token).toBe('USD.unknown');
+  });
+
+  it('handles IOU Payment with missing value (defaults to 0)', () => {
+    const rawTx = JSON.stringify({
+      TransactionType: 'Payment',
+      Account: 'rSender',
+      Destination: 'rReceiver',
+      Amount: {
+        currency: 'USD',
+        issuer: 'rIssuer',
+        // No value
+      },
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('TOKEN_TRANSFER');
+    expect(result.operations[0]!.amount).toBe(0n);
+  });
+
+  it('handles IOU Payment with invalid value (catch branch)', () => {
+    const rawTx = JSON.stringify({
+      TransactionType: 'Payment',
+      Account: 'rSender',
+      Destination: 'rReceiver',
+      Amount: {
+        currency: 'USD',
+        issuer: 'rIssuer',
+        value: 'not-a-number',
+      },
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('TOKEN_TRANSFER');
+    expect(result.operations[0]!.amount).toBe(0n);
+  });
+
+  it('handles Payment with no Destination field', () => {
+    const rawTx = JSON.stringify({
+      TransactionType: 'Payment',
+      Account: 'rSender',
+      Amount: '1000000',
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('NATIVE_TRANSFER');
+    expect(result.operations[0]!.to).toBeUndefined();
+  });
+
+  it('handles OfferCreate with missing TakerGets', () => {
+    const rawTx = JSON.stringify({
+      TransactionType: 'OfferCreate',
+      Account: 'rSender',
+      // No TakerGets
+      TakerPays: '50000000',
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('CONTRACT_CALL');
+    expect(result.operations[0]!.method).toBe('OfferCreate');
+    expect(result.operations[0]!.amount).toBeUndefined();
+  });
+
+  it('handles OfferCreate with IOU TakerGets missing currency/issuer', () => {
+    const rawTx = JSON.stringify({
+      TransactionType: 'OfferCreate',
+      Account: 'rSender',
+      TakerGets: {
+        // No currency, no issuer
+        value: '100',
+      },
+      TakerPays: '50000000',
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('CONTRACT_CALL');
+    expect(result.operations[0]!.token).toBe('unknown.unknown');
+  });
+
+  it('handles OfferCreate with IOU TakerGets missing value', () => {
+    const rawTx = JSON.stringify({
+      TransactionType: 'OfferCreate',
+      Account: 'rSender',
+      TakerGets: {
+        currency: 'USD',
+        issuer: 'rIssuer',
+        // No value
+      },
+      TakerPays: '50000000',
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('CONTRACT_CALL');
+    expect(result.operations[0]!.amount).toBe(0n);
+  });
+
+  it('handles OfferCreate with IOU TakerGets invalid value (catch branch)', () => {
+    const rawTx = JSON.stringify({
+      TransactionType: 'OfferCreate',
+      Account: 'rSender',
+      TakerGets: {
+        currency: 'USD',
+        issuer: 'rIssuer',
+        value: 'invalid-value',
+      },
+      TakerPays: '50000000',
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('CONTRACT_CALL');
+    expect(result.operations[0]!.amount).toBe(0n);
+  });
+
+  it('handles TrustSet with partial LimitAmount (missing currency)', () => {
+    const rawTx = JSON.stringify({
+      TransactionType: 'TrustSet',
+      Account: 'rSender',
+      LimitAmount: {
+        // No currency
+        issuer: 'rGateway',
+        value: '1000',
+      },
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('APPROVE');
+    expect(result.operations[0]!.token).toBe('unknown.rGateway');
+  });
+
+  it('handles TrustSet with partial LimitAmount (missing issuer)', () => {
+    const rawTx = JSON.stringify({
+      TransactionType: 'TrustSet',
+      Account: 'rSender',
+      LimitAmount: {
+        currency: 'USD',
+        // No issuer
+        value: '1000',
+      },
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('APPROVE');
+    expect(result.operations[0]!.to).toBeUndefined();
+    expect(result.operations[0]!.token).toBe('USD.unknown');
+  });
+
+  it('handles no TransactionType', () => {
+    const rawTx = JSON.stringify({
+      Account: 'rSender',
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('UNKNOWN');
+    expect(result.operations[0]!.method).toBeUndefined();
+  });
+
+  it('handles Payment Amount as null', () => {
+    const rawTx = JSON.stringify({
+      TransactionType: 'Payment',
+      Account: 'rSender',
+      Destination: 'rReceiver',
+      Amount: null,
+    });
+
+    const result = parseRippleTransaction(rawTx);
+    expect(result.operations[0]!.type).toBe('UNKNOWN');
+  });
 });

@@ -1219,3 +1219,265 @@ describe('EvmIncomingSubscriber - RPC Pool integration (#199)', () => {
     expect(reportSuccess).toHaveBeenCalledWith(TEST_RPC_URL);
   });
 });
+
+describe('EvmIncomingSubscriber - additional branch coverage', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('uses default generateId (crypto.randomUUID) when no generateId provided', async () => {
+    const subscriber = new EvmIncomingSubscriber({
+      rpcUrl: TEST_RPC_URL,
+      resolveTokenAddresses: () => [TEST_TOKEN_ADDRESS as `0x${string}`],
+    });
+
+    mockClient.getBlockNumber.mockResolvedValueOnce(100n);
+    const onTx = vi.fn();
+    await subscriber.subscribe('wallet-1', TEST_WALLET_ADDRESS, 'ethereum-mainnet', onTx);
+
+    // Poll with a matching ERC-20 log
+    mockClient.getBlockNumber.mockResolvedValueOnce(101n);
+    mockClient.getLogs.mockResolvedValueOnce([
+      {
+        transactionHash: '0xabc123',
+        address: TEST_TOKEN_ADDRESS,
+        args: {
+          from: TEST_SENDER_ADDRESS,
+          to: TEST_WALLET_ADDRESS,
+          value: 1000000n,
+        },
+        blockNumber: 101n,
+      },
+    ]);
+    mockClient.getBlock.mockResolvedValueOnce({ transactions: [] });
+    await subscriber.pollAll();
+
+    expect(onTx).toHaveBeenCalledOnce();
+    const tx = onTx.mock.calls[0]![0];
+    // Default generateId uses crypto.randomUUID, produces a UUID-like string
+    expect(typeof tx.id).toBe('string');
+    expect(tx.id.length).toBeGreaterThan(0);
+  });
+
+  it('handles non-Error thrown value in per-wallet error handler', async () => {
+    vi.useFakeTimers();
+    const logger = { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() };
+    const subscriber = new EvmIncomingSubscriber({
+      rpcUrl: TEST_RPC_URL,
+      generateId: mockGenerateId,
+      resolveTokenAddresses: () => [TEST_TOKEN_ADDRESS as `0x${string}`],
+      logger,
+    });
+
+    mockClient.getBlockNumber.mockResolvedValueOnce(100n);
+    await subscriber.subscribe('wallet-1', TEST_WALLET_ADDRESS, 'ethereum-mainnet', vi.fn());
+
+    // Throw a non-Error value from getLogs
+    mockClient.getBlockNumber.mockResolvedValueOnce(105n);
+    mockClient.getLogs.mockRejectedValueOnce('string error value');
+    await subscriber.pollAll();
+
+    // Should not throw, wallet gets backoff
+    // Advance past backoff, fail 2 more times to hit WARN_THRESHOLD
+    vi.advanceTimersByTime(31_000);
+    mockClient.getBlockNumber.mockResolvedValueOnce(105n);
+    mockClient.getLogs.mockRejectedValueOnce('string error 2');
+    await subscriber.pollAll();
+
+    vi.advanceTimersByTime(61_000);
+    mockClient.getBlockNumber.mockResolvedValueOnce(105n);
+    mockClient.getLogs.mockRejectedValueOnce('string error 3');
+    await subscriber.pollAll();
+
+    // At WARN_THRESHOLD (3), logger.warn should include the string error message
+    expect(logger.warn).toHaveBeenCalled();
+    const warnMsg = logger.warn.mock.calls[0]![0] as string;
+    expect(warnMsg).toContain('string error 3');
+  });
+
+  it('cursor advancement uses currentBlock when range is smaller than MAX_BLOCK_RANGE', async () => {
+    vi.useFakeTimers();
+    const onAlert = vi.fn();
+    const subscriber = new EvmIncomingSubscriber({
+      rpcUrl: TEST_RPC_URL,
+      generateId: mockGenerateId,
+      resolveTokenAddresses: () => [TEST_TOKEN_ADDRESS as `0x${string}`],
+      onRpcAlert: onAlert,
+    });
+
+    // Subscribe at block 100
+    mockClient.getBlockNumber.mockResolvedValueOnce(100n);
+    await subscriber.subscribe('wallet-1', TEST_WALLET_ADDRESS, 'ethereum-mainnet', vi.fn());
+
+    // currentBlock is 103 (only 3 blocks ahead, less than MAX_BLOCK_RANGE=10)
+    // Fail 3 times to trigger cursor advancement
+    for (let i = 0; i < 3; i++) {
+      mockClient.getBlockNumber.mockResolvedValueOnce(103n);
+      mockClient.getLogs.mockRejectedValueOnce(new Error('fail'));
+      await subscriber.pollAll();
+      vi.advanceTimersByTime(301_000);
+    }
+
+    // On 3rd failure, should advance cursor to 103 (currentBlock, not lastBlock + MAX_BLOCK_RANGE)
+    expect(onAlert).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'INCOMING_TX_RANGE_SKIPPED',
+      toBlock: '103', // currentBlock, not 110 (100+10)
+    }));
+  });
+
+  it('emits RPC_HEALTH_DEGRADED alert at exactly 5 consecutive errors', async () => {
+    vi.useFakeTimers();
+    const onAlert = vi.fn();
+    const subscriber = new EvmIncomingSubscriber({
+      rpcUrl: TEST_RPC_URL,
+      generateId: mockGenerateId,
+      resolveTokenAddresses: () => [TEST_TOKEN_ADDRESS as `0x${string}`],
+      onRpcAlert: onAlert,
+    });
+
+    mockClient.getBlockNumber.mockResolvedValueOnce(100n);
+    await subscriber.subscribe('wallet-1', TEST_WALLET_ADDRESS, 'ethereum-mainnet', vi.fn());
+
+    // Fail 5 times, keep currentBlock advancing so lastBlock < currentBlock after cursor advancement
+    for (let i = 0; i < 5; i++) {
+      mockClient.getBlockNumber.mockResolvedValueOnce(200n + BigInt(i * 20));
+      mockClient.getLogs.mockRejectedValueOnce(new Error(`fail-${i}`));
+      await subscriber.pollAll();
+      vi.advanceTimersByTime(301_000);
+    }
+
+    // Should have emitted both RANGE_SKIPPED (at 3) and HEALTH_DEGRADED (at 5)
+    const healthAlerts = onAlert.mock.calls.filter(
+      (c: unknown[]) => (c[0] as { type: string }).type === 'RPC_HEALTH_DEGRADED',
+    );
+    expect(healthAlerts).toHaveLength(1);
+    expect(healthAlerts[0]![0]).toMatchObject({
+      type: 'RPC_HEALTH_DEGRADED',
+      walletId: 'wallet-1',
+      errorCount: 5,
+    });
+  });
+
+  it('does not re-emit RPC_HEALTH_DEGRADED for already alerted wallet', async () => {
+    vi.useFakeTimers();
+    const onAlert = vi.fn();
+    const subscriber = new EvmIncomingSubscriber({
+      rpcUrl: TEST_RPC_URL,
+      generateId: mockGenerateId,
+      resolveTokenAddresses: () => [TEST_TOKEN_ADDRESS as `0x${string}`],
+      onRpcAlert: onAlert,
+    });
+
+    mockClient.getBlockNumber.mockResolvedValueOnce(100n);
+    await subscriber.subscribe('wallet-1', TEST_WALLET_ADDRESS, 'ethereum-mainnet', vi.fn());
+
+    // Fail 10 times, keep currentBlock advancing so polling is never skipped
+    for (let i = 0; i < 10; i++) {
+      mockClient.getBlockNumber.mockResolvedValueOnce(200n + BigInt(i * 20));
+      mockClient.getLogs.mockRejectedValueOnce(new Error(`fail-${i}`));
+      await subscriber.pollAll();
+      vi.advanceTimersByTime(301_000);
+    }
+
+    // RPC_HEALTH_DEGRADED should only be emitted once (at errorCount === 5)
+    const healthAlerts = onAlert.mock.calls.filter(
+      (c: unknown[]) => (c[0] as { type: string }).type === 'RPC_HEALTH_DEGRADED',
+    );
+    expect(healthAlerts).toHaveLength(1);
+  });
+
+  it('handles non-Error thrown in RPC-level catch (getBlockNumber)', async () => {
+    vi.useFakeTimers();
+    const reportFailure = vi.fn();
+    const logger = { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() };
+    const subscriber = new EvmIncomingSubscriber({
+      rpcUrl: TEST_RPC_URL,
+      generateId: mockGenerateId,
+      reportRpcFailure: reportFailure,
+      logger,
+    });
+
+    // getBlockNumber throws a non-Error value
+    mockClient.getBlockNumber.mockRejectedValueOnce('rpc string error');
+    await subscriber.pollAll();
+
+    expect(reportFailure).toHaveBeenCalledWith(TEST_RPC_URL);
+
+    // Fail 2 more times to hit WARN_THRESHOLD (3) for global backoff
+    vi.advanceTimersByTime(31_000);
+    mockClient.getBlockNumber.mockRejectedValueOnce('rpc string error 2');
+    await subscriber.pollAll();
+
+    vi.advanceTimersByTime(61_000);
+    mockClient.getBlockNumber.mockRejectedValueOnce('rpc string error 3');
+    await subscriber.pollAll();
+
+    expect(logger.warn).toHaveBeenCalled();
+    const warnMsg = logger.warn.mock.calls[0]![0] as string;
+    expect(warnMsg).toContain('rpc string error 3');
+  });
+
+  it('handles getLogs returning null (#203)', async () => {
+    const subscriber = new EvmIncomingSubscriber({
+      rpcUrl: TEST_RPC_URL,
+      generateId: mockGenerateId,
+      resolveTokenAddresses: () => [TEST_TOKEN_ADDRESS as `0x${string}`],
+    });
+
+    mockClient.getBlockNumber.mockResolvedValueOnce(100n);
+    const onTx = vi.fn();
+    await subscriber.subscribe('wallet-1', TEST_WALLET_ADDRESS, 'ethereum-mainnet', onTx);
+
+    // getLogs returns null instead of empty array
+    mockClient.getBlockNumber.mockResolvedValueOnce(101n);
+    mockClient.getLogs.mockResolvedValueOnce(null);
+    mockClient.getBlock.mockResolvedValueOnce({ transactions: [] });
+    await subscriber.pollAll();
+
+    // Should not throw, no transactions detected
+    expect(onTx).not.toHaveBeenCalled();
+  });
+
+  it('skips transactions without to field in pollNativeETH', async () => {
+    idCounter = 0;
+    const subscriber = new EvmIncomingSubscriber({
+      rpcUrl: TEST_RPC_URL,
+      generateId: mockGenerateId,
+      resolveTokenAddresses: () => [TEST_TOKEN_ADDRESS as `0x${string}`],
+    });
+
+    mockClient.getBlockNumber.mockResolvedValueOnce(100n);
+    const onTx = vi.fn();
+    await subscriber.subscribe(
+      'wallet-1',
+      TEST_WALLET_ADDRESS,
+      'ethereum-mainnet',
+      onTx,
+    );
+
+    mockClient.getBlockNumber.mockResolvedValueOnce(101n);
+    mockClient.getLogs.mockResolvedValueOnce([]);
+    mockClient.getBlock.mockResolvedValueOnce({
+      transactions: [
+        // Contract creation: tx object without 'to' (to is undefined/null)
+        {
+          hash: '0xcontractcreation',
+          from: TEST_SENDER_ADDRESS,
+          value: 100n,
+        },
+        // Valid tx to our wallet
+        {
+          hash: '0xvalidtx',
+          from: TEST_SENDER_ADDRESS,
+          to: TEST_WALLET_ADDRESS,
+          value: 500n,
+        },
+      ],
+    });
+    await subscriber.pollAll();
+
+    // Only the valid tx should be detected, contract creation skipped
+    expect(onTx).toHaveBeenCalledOnce();
+    expect(onTx.mock.calls[0]![0].txHash).toBe('0xvalidtx');
+  });
+});

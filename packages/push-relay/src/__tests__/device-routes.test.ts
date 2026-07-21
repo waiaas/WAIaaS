@@ -191,4 +191,18 @@ describe('GET /health', () => {
     expect(body.devices).toBe(1);
     expect(body.sign_responses).toBe(0);
   });
+
+  it('returns "unknown" version when version is not provided', async () => {
+    const noVersionApp = createServer({
+      registry,
+      provider: makeMockProvider(),
+      apiKey: API_KEY,
+    });
+
+    const res = await noVersionApp.request('/health');
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as { version: string };
+    expect(body.version).toBe('unknown');
+  });
 });

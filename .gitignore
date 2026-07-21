@@ -72,3 +72,5 @@ site/llms-full.txt
 
 # Docker secrets (never commit)
 secrets/
+# Dev.to link update backup (scripts/devto-replace-links.mjs)
+devto-link-update-backup.json

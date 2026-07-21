@@ -152,5 +152,27 @@ describe('address-utils', () => {
     it('throws on invalid format', () => {
       expect(() => xrpToDrops('1.2.3')).toThrow('Invalid XRP value');
     });
+
+    it('converts negative XRP value', () => {
+      expect(xrpToDrops('-1')).toBe(-1_000_000n);
+    });
+
+    it('converts negative fractional XRP value', () => {
+      expect(xrpToDrops('-0.5')).toBe(-500_000n);
+    });
+
+    it('handles missing whole part (starts with dot)', () => {
+      expect(xrpToDrops('.5')).toBe(500_000n);
+    });
+  });
+
+  describe('dropsToXrp -- negative fractional', () => {
+    it('converts negative drops with fractional part', () => {
+      expect(dropsToXrp(-500_000n)).toBe('-0.5');
+    });
+
+    it('converts negative drops with trailing zeros stripped', () => {
+      expect(dropsToXrp(-1_500_000n)).toBe('-1.5');
+    });
   });
 });

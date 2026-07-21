@@ -1190,4 +1190,360 @@ describe('EvmAdapter error paths and branch coverage', () => {
       }
     });
   });
+
+  // -- chain.id fallback in all build methods --
+
+  describe('chain.id fallback in buildTokenTransfer', () => {
+    it('uses chainId 1 when client.chain is undefined', async () => {
+      mockClient.chain = undefined;
+      mockClient.getTransactionCount.mockResolvedValue(0);
+      mockClient.estimateFeesPerGas.mockResolvedValue({
+        maxFeePerGas: 20000000000n,
+        maxPriorityFeePerGas: 1000000000n,
+      });
+      mockClient.estimateGas.mockResolvedValue(60000n);
+
+      const result = await adapter.buildTokenTransfer({
+        from: TEST_FROM,
+        to: TEST_TO,
+        amount: 1000000n,
+        token: { address: TEST_TOKEN, decimals: 6, symbol: 'USDC' },
+      });
+      expect(result.metadata.chainId).toBe(1);
+    });
+  });
+
+  describe('chain.id fallback in buildContractCall', () => {
+    it('uses chainId 1 when client.chain is undefined', async () => {
+      mockClient.chain = undefined;
+      mockClient.getTransactionCount.mockResolvedValue(0);
+      mockClient.estimateFeesPerGas.mockResolvedValue({
+        maxFeePerGas: 20000000000n,
+        maxPriorityFeePerGas: 1000000000n,
+      });
+      mockClient.estimateGas.mockResolvedValue(60000n);
+
+      const result = await adapter.buildContractCall({
+        from: TEST_FROM,
+        to: TEST_TO,
+        calldata: '0xa9059cbb0000000000000000000000000000000000000000000000000000000000000001',
+      });
+      expect(result.metadata.chainId).toBe(1);
+    });
+  });
+
+  describe('chain.id fallback in buildApprove', () => {
+    it('uses chainId 1 when client.chain is undefined', async () => {
+      mockClient.chain = undefined;
+      mockClient.getTransactionCount.mockResolvedValue(0);
+      mockClient.estimateFeesPerGas.mockResolvedValue({
+        maxFeePerGas: 20000000000n,
+        maxPriorityFeePerGas: 1000000000n,
+      });
+      mockClient.estimateGas.mockResolvedValue(50000n);
+
+      const result = await adapter.buildApprove({
+        from: TEST_FROM,
+        spender: TEST_TO,
+        token: { address: TEST_TOKEN, decimals: 6, symbol: 'USDC' },
+        amount: 1000000n,
+      });
+      expect(result.metadata.chainId).toBe(1);
+    });
+  });
+
+  describe('chain.id fallback in buildNftTransferTx', () => {
+    it('uses chainId 1 when client.chain is undefined', async () => {
+      mockClient.chain = undefined;
+      mockClient.getTransactionCount.mockResolvedValue(0);
+      mockClient.estimateFeesPerGas.mockResolvedValue({
+        maxFeePerGas: 20000000000n,
+        maxPriorityFeePerGas: 1000000000n,
+      });
+      mockClient.estimateGas.mockResolvedValue(80000n);
+
+      const result = await adapter.buildNftTransferTx({
+        from: TEST_FROM,
+        to: TEST_TO,
+        token: { address: TEST_TOKEN, tokenId: '1', standard: 'ERC-721' },
+        amount: 1n,
+      });
+      expect(result.metadata.chainId).toBe(1);
+    });
+  });
+
+  describe('chain.id fallback in approveNft', () => {
+    it('uses chainId 1 when client.chain is undefined', async () => {
+      mockClient.chain = undefined;
+      mockClient.getTransactionCount.mockResolvedValue(0);
+      mockClient.estimateFeesPerGas.mockResolvedValue({
+        maxFeePerGas: 20000000000n,
+        maxPriorityFeePerGas: 1000000000n,
+      });
+      mockClient.estimateGas.mockResolvedValue(50000n);
+
+      const result = await adapter.approveNft({
+        from: TEST_FROM,
+        spender: TEST_TO,
+        token: { address: TEST_TOKEN, tokenId: '1', standard: 'ERC-721' },
+        approvalType: 'all',
+      });
+      expect(result.metadata.chainId).toBe(1);
+    });
+  });
+
+  // -- Non-Error thrown values for cause branches --
+
+  describe('non-Error thrown values (cause branches)', () => {
+    it('buildTransaction with non-Error "insufficient funds" has undefined cause', async () => {
+      mockClient.getTransactionCount.mockResolvedValue(0);
+      mockClient.estimateFeesPerGas.mockResolvedValue({
+        maxFeePerGas: 20000000000n,
+        maxPriorityFeePerGas: 1000000000n,
+      });
+      mockClient.estimateGas.mockRejectedValue('insufficient funds for gas');
+
+      try {
+        await adapter.buildTransaction({ from: TEST_FROM, to: TEST_TO, amount: 1n });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ChainError);
+        expect((error as ChainError).code).toBe('INSUFFICIENT_BALANCE');
+        expect((error as ChainError).cause).toBeUndefined();
+      }
+    });
+
+    it('buildTransaction with non-Error "nonce too low" has undefined cause', async () => {
+      mockClient.getTransactionCount.mockResolvedValue(0);
+      mockClient.estimateFeesPerGas.mockResolvedValue({
+        maxFeePerGas: 20000000000n,
+        maxPriorityFeePerGas: 1000000000n,
+      });
+      mockClient.estimateGas.mockRejectedValue('nonce too low');
+
+      try {
+        await adapter.buildTransaction({ from: TEST_FROM, to: TEST_TO, amount: 1n });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ChainError);
+        expect((error as ChainError).code).toBe('NONCE_TOO_LOW');
+        expect((error as ChainError).cause).toBeUndefined();
+      }
+    });
+
+    it('simulateTransaction with non-Error extracts string message', async () => {
+      mockClient.call.mockRejectedValue('simulation string error');
+
+      const tx = {
+        chain: 'ethereum' as const,
+        serialized: new Uint8Array([0xf8]),
+        estimatedFee: 100n,
+        metadata: { from: TEST_FROM },
+      };
+      const result = await adapter.simulateTransaction(tx);
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('simulation string error');
+    });
+
+    it('submitTransaction with non-Error "nonce already" has undefined cause', async () => {
+      mockClient.sendRawTransaction.mockRejectedValue('nonce already used');
+
+      try {
+        await adapter.submitTransaction(new Uint8Array([0x01]));
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ChainError);
+        expect((error as ChainError).code).toBe('NONCE_ALREADY_USED');
+        expect((error as ChainError).cause).toBeUndefined();
+      }
+    });
+
+    it('submitTransaction with non-Error generic uses mapError', async () => {
+      mockClient.sendRawTransaction.mockRejectedValue('generic submit error');
+
+      try {
+        await adapter.submitTransaction(new Uint8Array([0x01]));
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect((error as WAIaaSError).code).toBe('CHAIN_ERROR');
+        expect((error as WAIaaSError).cause).toBeUndefined();
+      }
+    });
+
+    it('buildContractCall with non-Error "insufficient funds" has undefined cause', async () => {
+      mockClient.getTransactionCount.mockResolvedValue(0);
+      mockClient.estimateFeesPerGas.mockResolvedValue({
+        maxFeePerGas: 20000000000n,
+        maxPriorityFeePerGas: 1000000000n,
+      });
+      mockClient.estimateGas.mockRejectedValue('insufficient funds');
+
+      try {
+        await adapter.buildContractCall({
+          from: TEST_FROM,
+          to: TEST_TO,
+          calldata: '0xa9059cbb0000000000000000000000000000000000000000000000000000000000000001',
+        });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ChainError);
+        expect((error as ChainError).code).toBe('INSUFFICIENT_BALANCE');
+        expect((error as ChainError).cause).toBeUndefined();
+      }
+    });
+
+    it('signExternalTransaction with non-Error in outer catch wraps as INVALID_RAW_TRANSACTION', async () => {
+      // Parse succeeds, but signing throws a non-Error value
+      const { parseTransaction: mockParse } = await import('viem');
+      (mockParse as ReturnType<typeof vi.fn>).mockReturnValue({
+        to: TEST_TO,
+        value: 1n,
+        type: 'eip1559',
+      });
+
+      const { privateKeyToAccount } = await import('viem/accounts');
+      (privateKeyToAccount as ReturnType<typeof vi.fn>).mockReturnValue({
+        signTransaction: vi.fn().mockRejectedValue('string signing error'),
+      });
+
+      try {
+        await adapter.signExternalTransaction('0xvalidhex', new Uint8Array(32));
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ChainError);
+        expect((error as ChainError).code).toBe('INVALID_RAW_TRANSACTION');
+        expect((error as ChainError).message).toContain('string signing error');
+        expect((error as ChainError).cause).toBeUndefined();
+      }
+    });
+
+    it('detectNftStandard with non-Error thrown value', async () => {
+      mockClient.readContract.mockRejectedValue('nft detection string error');
+
+      try {
+        await adapter.detectNftStandard(TEST_TOKEN);
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(WAIaaSError);
+        expect((error as WAIaaSError).code).toBe('UNSUPPORTED_NFT_STANDARD');
+        expect((error as WAIaaSError).message).toContain('nft detection string error');
+      }
+    });
+
+    it('mapError with non-Error "nonce too low" has undefined cause', async () => {
+      mockClient.getTransactionCount.mockResolvedValue(0);
+      mockClient.estimateFeesPerGas.mockResolvedValue({
+        maxFeePerGas: 20000000000n,
+        maxPriorityFeePerGas: 1000000000n,
+      });
+      // Test the nonce too low branch via mapError (through buildTransaction fallback to mapError)
+      // Use a non-Error that does NOT match "insufficient funds" or "nonce too low" in buildTransaction
+      // but does match "nonce too low" in mapError
+      // Actually, buildTransaction catches "nonce too low" before mapError.
+      // To test mapError's nonce branch, throw from a path that goes through mapError.
+      // buildTokenTransfer goes through mapError for all non-specific errors.
+      mockClient.estimateGas.mockRejectedValue('nonce too low issue');
+
+      try {
+        await adapter.buildTokenTransfer({
+          from: TEST_FROM,
+          to: TEST_TO,
+          amount: 1000000n,
+          token: { address: TEST_TOKEN, decimals: 6, symbol: 'USDC' },
+        });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        // buildTokenTransfer goes through mapError
+        expect(error).toBeInstanceOf(ChainError);
+        expect((error as ChainError).code).toBe('NONCE_TOO_LOW');
+        expect((error as ChainError).cause).toBeUndefined();
+      }
+    });
+
+    it('mapError with non-Error "connection" has undefined cause', async () => {
+      mockClient.getTransactionCount.mockResolvedValue(0);
+      mockClient.estimateFeesPerGas.mockResolvedValue({
+        maxFeePerGas: 20000000000n,
+        maxPriorityFeePerGas: 1000000000n,
+      });
+      mockClient.estimateGas.mockRejectedValue('connection refused');
+
+      try {
+        await adapter.buildTokenTransfer({
+          from: TEST_FROM,
+          to: TEST_TO,
+          amount: 1000000n,
+          token: { address: TEST_TOKEN, decimals: 6, symbol: 'USDC' },
+        });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ChainError);
+        expect((error as ChainError).code).toBe('RPC_CONNECTION_ERROR');
+        expect((error as ChainError).cause).toBeUndefined();
+      }
+    });
+
+    it('mapError with non-Error "timeout" has undefined cause', async () => {
+      mockClient.getTransactionCount.mockResolvedValue(0);
+      mockClient.estimateFeesPerGas.mockResolvedValue({
+        maxFeePerGas: 20000000000n,
+        maxPriorityFeePerGas: 1000000000n,
+      });
+      mockClient.estimateGas.mockRejectedValue('timeout exceeded');
+
+      try {
+        await adapter.buildTokenTransfer({
+          from: TEST_FROM,
+          to: TEST_TO,
+          amount: 1000000n,
+          token: { address: TEST_TOKEN, decimals: 6, symbol: 'USDC' },
+        });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ChainError);
+        expect((error as ChainError).code).toBe('RPC_TIMEOUT');
+        expect((error as ChainError).cause).toBeUndefined();
+      }
+    });
+
+    it('getAssets fallback readContract failure with non-Error thrown value', async () => {
+      adapter.setAllowedTokens([
+        { address: TEST_TOKEN, symbol: 'USDC', name: 'USD Coin', decimals: 6 },
+      ]);
+      mockClient.getBalance.mockResolvedValue(1000n);
+      mockClient.multicall.mockResolvedValue([
+        { status: 'failure', error: new Error('multicall failed') },
+      ]);
+      mockClient.readContract.mockRejectedValue('string readContract error');
+
+      const assets = await adapter.getAssets(TEST_FROM);
+      // Token should be skipped, only native remains
+      expect(assets).toHaveLength(1);
+      expect(assets[0]!.mint).toBe('native');
+    });
+  });
+
+  // -- getAssets sort tie-break: b.balance < a.balance branch --
+
+  describe('getAssets sort reverse order branch', () => {
+    it('covers b.balance < a.balance return -1 branch', async () => {
+      const TOKEN_A = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+      const TOKEN_B = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+      adapter.setAllowedTokens([
+        { address: TOKEN_A, symbol: 'AAA', name: 'Token A', decimals: 18 },
+        { address: TOKEN_B, symbol: 'BBB', name: 'Token B', decimals: 18 },
+      ]);
+      mockClient.getBalance.mockResolvedValue(1000n);
+      mockClient.multicall.mockResolvedValue([
+        { status: 'success', result: 500n },  // AAA: larger
+        { status: 'success', result: 100n },  // BBB: smaller
+      ]);
+
+      const assets = await adapter.getAssets(TEST_FROM);
+      expect(assets).toHaveLength(3);
+      expect(assets[0]!.mint).toBe('native');
+      expect(assets[1]!.symbol).toBe('AAA'); // larger balance first
+      expect(assets[2]!.symbol).toBe('BBB');
+    });
+  });
 });

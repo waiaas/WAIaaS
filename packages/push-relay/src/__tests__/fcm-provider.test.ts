@@ -226,5 +226,19 @@ describe('FcmProvider', () => {
         'Failed to get FCM access token',
       );
     });
+
+    it('handles non-Error thrown objects in send', async () => {
+      vi.spyOn(globalThis, 'fetch')
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ access_token: 'mock-token' }), { status: 200 }),
+        )
+        .mockRejectedValueOnce('string-error');
+
+      const result = await provider.send(['token1'], mockPayload);
+      expect(result.failed).toBe(1);
+      expect(result.sent).toBe(0);
+      // Non-Error thrown value should not be treated as invalid token
+      expect(result.invalidTokens).toEqual([]);
+    });
   });
 });

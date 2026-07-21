@@ -17,7 +17,7 @@ import { TelegramChannel } from '../../notifications/channels/telegram.js';
 // ---------------------------------------------------------------------------
 
 const telegramHandlers = [
-  http.post('https://api.telegram.org/bot*/sendMessage', () => {
+  http.post('https://api.telegram.org/bot:token/sendMessage', () => {
     return HttpResponse.json({ ok: true, result: { message_id: 1 } });
   }),
 ];

@@ -193,4 +193,41 @@ describe('PushwooshProvider', () => {
     const invalid = new PushwooshProvider({ api_token: '', application_code: '', api_url: DEFAULT_API_URL });
     expect(await invalid.validateConfig()).toBe(false);
   });
+
+  it('sets android priority to normal when payload priority is normal', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ status_code: 200, status_message: 'OK' }),
+    });
+
+    const provider = new PushwooshProvider({
+      api_token: 'test-token',
+      application_code: 'APP-123',
+      api_url: DEFAULT_API_URL,
+    });
+
+    const normalPayload: PushPayload = { ...mockPayload, priority: 'normal' };
+    await provider.send(['device-1'], normalPayload);
+
+    const fetchCall = vi.mocked(globalThis.fetch).mock.calls[0]!;
+    const body = JSON.parse(fetchCall[1]!.body as string);
+    const notification = body.request.notifications[0];
+    expect(notification.android_root_params.priority).toBe('normal');
+  });
+
+  it('throws on 403 auth error (no retry)', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+    });
+
+    const provider = new PushwooshProvider({
+      api_token: 'bad-token',
+      application_code: 'APP-123',
+      api_url: DEFAULT_API_URL,
+    });
+
+    await expect(provider.send(['device-1'], mockPayload)).rejects.toThrow('auth failed');
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(1);
+  });
 });

@@ -267,6 +267,56 @@ describe('smart-account-clients (wallet-based provider)', () => {
       expect(bundlerArgs).toHaveProperty('paymaster');
     });
 
+    it('wraps paymaster methods with policyId context when policyId is set', () => {
+      const mockGetPaymasterData = vi.fn().mockResolvedValue({ data: 'pm' });
+      const mockGetPaymasterStubData = vi.fn().mockResolvedValue({ data: 'stub' });
+      mockCreatePaymasterClient.mockReturnValueOnce({
+        type: 'paymasterClient',
+        getPaymasterData: mockGetPaymasterData,
+        getPaymasterStubData: mockGetPaymasterStubData,
+      });
+
+      const walletProvider: WalletProviderData = {
+        aaProvider: 'alchemy',
+        aaProviderApiKey: 'ak_test_456',
+        aaBundlerUrl: null,
+        aaPaymasterUrl: null,
+        aaPaymasterPolicyId: 'pol_test_789',
+      };
+
+      createSmartAccountBundlerClient({
+        client: mockPublicClient(),
+        account: mockSmartAccount(),
+        networkId: 'ethereum-sepolia',
+        walletProvider,
+      });
+
+      // The bundler client should be created with a paymaster option
+      expect(mockCreateBundlerClient).toHaveBeenCalledOnce();
+      const bundlerArgs = mockCreateBundlerClient.mock.calls[0][0];
+      expect(bundlerArgs).toHaveProperty('paymaster');
+
+      // The paymaster methods should be wrapped with context
+      const paymaster = bundlerArgs.paymaster;
+      expect(paymaster.getPaymasterData).toBeDefined();
+      expect(paymaster.getPaymasterStubData).toBeDefined();
+
+      // Call the wrapper functions to trigger the uncovered arrow functions
+      const mockParams = { userOperation: {}, entryPointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' };
+      paymaster.getPaymasterData(mockParams);
+      paymaster.getPaymasterStubData(mockParams);
+
+      // Verify the wrapped calls include the sponsorshipPolicyId context
+      expect(mockGetPaymasterData).toHaveBeenCalledWith({
+        ...mockParams,
+        context: { sponsorshipPolicyId: 'pol_test_789' },
+      });
+      expect(mockGetPaymasterStubData).toHaveBeenCalledWith({
+        ...mockParams,
+        context: { sponsorshipPolicyId: 'pol_test_789' },
+      });
+    });
+
     it('no paymaster for custom provider without paymasterUrl', () => {
       const walletProvider: WalletProviderData = {
         aaProvider: 'custom',

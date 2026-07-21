@@ -180,6 +180,26 @@ describe('iouToSmallestUnit / smallestUnitToIou roundtrip', () => {
   });
 });
 
+describe('iouToSmallestUnit edge cases', () => {
+  it('handles value starting with dot (no whole part)', () => {
+    expect(iouToSmallestUnit('.5', 15)).toBe(500_000_000_000_000n);
+  });
+
+  it('throws on multiple dots', () => {
+    expect(() => iouToSmallestUnit('1.2.3', 15)).toThrow();
+  });
+
+  it('handles whitespace-only as 0n', () => {
+    expect(iouToSmallestUnit('   ', 15)).toBe(0n);
+  });
+});
+
+describe('smallestUnitToIou edge cases', () => {
+  it('handles negative whole number without fractional part', () => {
+    expect(smallestUnitToIou(-100_000_000_000_000_000n, 15)).toBe('-100');
+  });
+});
+
 describe('IOU_DECIMALS', () => {
   it('is 15', () => {
     expect(IOU_DECIMALS).toBe(15);

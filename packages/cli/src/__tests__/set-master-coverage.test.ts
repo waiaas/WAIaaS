@@ -151,4 +151,47 @@ describe('setMasterCommand', () => {
     expect(existsSync(recoveryPath)).toBe(false);
     expect(consoleSpy.log).toHaveBeenCalledWith(expect.stringContaining('Recovery key deleted'));
   });
+
+  it('network error on PUT: exits with error', async () => {
+    const { promptPassword: pp } = await import('../utils/password.js');
+    vi.mocked(pp).mockReset();
+    vi.mocked(pp)
+      .mockResolvedValueOnce('newpass12345')
+      .mockResolvedValueOnce('newpass12345');
+
+    fetchMock
+      .mockResolvedValueOnce({ ok: true } as Response) // health
+      .mockRejectedValueOnce(new Error('Connection refused')); // PUT
+
+    const { setMasterCommand } = await import('../commands/set-master.js');
+    await setMasterCommand({ dataDir: testDir, password: 'current' });
+
+    expect(consoleSpy.error).toHaveBeenCalledWith(expect.stringContaining('Connection refused'));
+    expect(exitMock).toHaveBeenCalledWith(1);
+  });
+
+  it('recovery.key delete failure: warns when unlink fails', async () => {
+    const { promptPassword: pp } = await import('../utils/password.js');
+    vi.mocked(pp).mockReset();
+    vi.mocked(pp)
+      .mockResolvedValueOnce('newpass12345')
+      .mockResolvedValueOnce('newpass12345');
+
+    // Create recovery.key as a non-empty directory (unlinkSync will fail)
+    const recoveryPath = join(testDir, 'recovery.key');
+    mkdirSync(recoveryPath, { recursive: true });
+    writeFileSync(join(recoveryPath, 'dummy'), 'x');
+
+    fetchMock
+      .mockResolvedValueOnce({ ok: true } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ walletsReEncrypted: 0, settingsReEncrypted: 0 }),
+      } as unknown as Response);
+
+    const { setMasterCommand } = await import('../commands/set-master.js');
+    await setMasterCommand({ dataDir: testDir, password: 'current' });
+
+    expect(consoleSpy.warn).toHaveBeenCalledWith('Warning: Could not delete recovery.key');
+  });
 });

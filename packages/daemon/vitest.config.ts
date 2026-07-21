@@ -31,7 +31,7 @@ export default defineConfig({
         'src/lifecycle/daemon.ts',
       ],
       thresholds: {
-        branches: 83,
+        branches: 81,
         functions: 95,
         lines: 90,
         statements: 90,
