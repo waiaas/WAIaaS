@@ -233,6 +233,9 @@ describe('startCommand', () => {
   }
 
   beforeEach(() => {
+    // Reset module registry so each test's vi.doMock('@waiaas/daemon') applies to a
+    // fresh start.js import -- a cached module can shadow the mock and flake in CI.
+    vi.resetModules();
     testDir = makeTmpDir();
     // Mock process.exit to throw -- simulates execution halt
     vi.spyOn(process, 'exit').mockImplementation(((code: number) => {
