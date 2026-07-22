@@ -1,7 +1,7 @@
 {
   "name": "@waiaas/mcp",
   "mcpName": "io.github.minhoyoo-iotrust/waiaas",
-  "version": "2.16.1-rc",
+  "version": "2.16.1-rc.1",
   "description": "WAIaaS MCP server - Model Context Protocol integration for AI agents",
   "keywords": [
     "mcp",

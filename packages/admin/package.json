@@ -1,6 +1,6 @@
 {
   "name": "@waiaas/admin",
-  "version": "2.16.1-rc",
+  "version": "2.16.1-rc.1",
   "description": "WAIaaS Admin Web UI - built and bundled into daemon",
   "license": "MIT",
   "private": true,
