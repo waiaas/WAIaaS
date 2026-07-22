@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.16.1-rc.1](https://github.com/waiaas/WAIaaS/compare/v2.16.1-rc...v2.16.1-rc.1) (2026-07-22)
+
+
+### Bug Fixes
+
+* **release:** point package.json URLs at the waiaas org ([c3c1bbf](https://github.com/waiaas/WAIaaS/commit/c3c1bbf5820c755fdcc95d64a099940a83af53b4))
+* **release:** point package.json URLs at the waiaas org ([8e5a199](https://github.com/waiaas/WAIaaS/commit/8e5a199739e2053f50165049c694fda9c24cee3a))
+
 ## [2.16.1-rc](https://github.com/waiaas/WAIaaS/compare/v2.16.0...v2.16.1-rc) (2026-07-22)
 
 

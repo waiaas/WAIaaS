@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nickel-org/nickel.rs/master/examples/example_assets/schema.json",
   "productName": "WAIaaS Desktop",
-  "version": "2.16.1-rc",
+  "version": "2.16.1-rc.1",
   "identifier": "dev.waiaas.desktop",
   "build": {
     "frontendDist": "../src",
