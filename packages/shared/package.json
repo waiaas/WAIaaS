@@ -1,12 +1,12 @@
 {
   "name": "@waiaas/shared",
-  "version": "2.16.0",
+  "version": "2.16.1-rc.1",
   "description": "WAIaaS shared constants — pure TypeScript, no native dependencies",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/minhoyoo-iotrust/WAIaaS.git",
+    "url": "git+https://github.com/waiaas/WAIaaS.git",
     "directory": "packages/shared"
   },
   "main": "dist/index.js",

@@ -1,17 +1,17 @@
 {
   "name": "@waiaas/daemon",
-  "version": "2.16.0",
+  "version": "2.16.1-rc.1",
   "description": "WAIaaS daemon - self-hosted wallet service for AI agents",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/minhoyoo-iotrust/WAIaaS.git",
+    "url": "git+https://github.com/waiaas/WAIaaS.git",
     "directory": "packages/daemon"
   },
-  "homepage": "https://github.com/minhoyoo-iotrust/WAIaaS#readme",
+  "homepage": "https://github.com/waiaas/WAIaaS#readme",
   "bugs": {
-    "url": "https://github.com/minhoyoo-iotrust/WAIaaS/issues"
+    "url": "https://github.com/waiaas/WAIaaS/issues"
   },
   "publishConfig": {
     "access": "public"

@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.16.1-rc.1](https://github.com/waiaas/WAIaaS/compare/v2.16.1-rc...v2.16.1-rc.1) (2026-07-22)
+
+
+### Bug Fixes
+
+* **release:** point package.json URLs at the waiaas org ([c3c1bbf](https://github.com/waiaas/WAIaaS/commit/c3c1bbf5820c755fdcc95d64a099940a83af53b4))
+* **release:** point package.json URLs at the waiaas org ([8e5a199](https://github.com/waiaas/WAIaaS/commit/8e5a199739e2053f50165049c694fda9c24cee3a))
+
+## [2.16.1-rc](https://github.com/waiaas/WAIaaS/compare/v2.16.0...v2.16.1-rc) (2026-07-22)
+
+
+### Bug Fixes
+
+* **daemon:** remove flaky evaluateWhitelist deny test ([59dd362](https://github.com/waiaas/WAIaaS/commit/59dd362c2d99016e4d514840a9046a1ffb52dd97))
+* **daemon:** resolve 42 lint errors in test files ([1b74658](https://github.com/waiaas/WAIaaS/commit/1b74658493aca5c6f505aea192d177e513265feb))
+* **daemon:** update MSW handler to use :token param instead of glob ([4b60629](https://github.com/waiaas/WAIaaS/commit/4b6062995b1a83878e53f48e1a8253029c18631b))
+* **deps:** add pnpm overrides for transitive dependency vulnerabilities ([74fa3b0](https://github.com/waiaas/WAIaaS/commit/74fa3b0061be232dd2e73b9f2666eb134ba5b105))
+* **deps:** patch security vulnerabilities (147 → 18 audit findings) ([7efab37](https://github.com/waiaas/WAIaaS/commit/7efab376f9f901c787ef92cb5a1cd7d3ff0d643c))
+* **deps:** patch security vulnerabilities in direct dependencies ([32285c5](https://github.com/waiaas/WAIaaS/commit/32285c5b64b3eac5928e6850c686928b68b2c206))
+* **deps:** remove ajv override that breaks eslint compatibility ([46adb43](https://github.com/waiaas/WAIaaS/commit/46adb435da67c7d84ef176e8fb32427ab6effdb2))
+* **sdk:** remove unused readFile import causing TS6133 ([a54d5e9](https://github.com/waiaas/WAIaaS/commit/a54d5e94b7f7bc20d03a822763da131519f94307))
+* **sdk:** rename unused mockedReadFile to satisfy no-unused-vars lint ([537eb50](https://github.com/waiaas/WAIaaS/commit/537eb50de8d8d0c22a3929cde5fe541e8e526776))
+
 ## [2.16.0](https://github.com/minhoyoo-iotrust/WAIaaS/compare/v2.16.0-rc...v2.16.0) (2026-04-21)
 
 

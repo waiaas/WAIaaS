@@ -1,7 +1,7 @@
 {
   "name": "@waiaas/mcp",
   "mcpName": "io.github.minhoyoo-iotrust/waiaas",
-  "version": "2.16.0",
+  "version": "2.16.1-rc.1",
   "description": "WAIaaS MCP server - Model Context Protocol integration for AI agents",
   "keywords": [
     "mcp",
@@ -21,12 +21,12 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/minhoyoo-iotrust/WAIaaS.git",
+    "url": "git+https://github.com/waiaas/WAIaaS.git",
     "directory": "packages/mcp"
   },
-  "homepage": "https://github.com/minhoyoo-iotrust/WAIaaS#readme",
+  "homepage": "https://github.com/waiaas/WAIaaS#readme",
   "bugs": {
-    "url": "https://github.com/minhoyoo-iotrust/WAIaaS/issues"
+    "url": "https://github.com/waiaas/WAIaaS/issues"
   },
   "publishConfig": {
     "access": "public"

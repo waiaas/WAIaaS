@@ -1,18 +1,18 @@
 {
   "name": "@waiaas/admin",
-  "version": "2.16.0",
+  "version": "2.16.1-rc.1",
   "description": "WAIaaS Admin Web UI - built and bundled into daemon",
   "license": "MIT",
   "private": true,
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/minhoyoo-iotrust/WAIaaS.git",
+    "url": "git+https://github.com/waiaas/WAIaaS.git",
     "directory": "packages/admin"
   },
-  "homepage": "https://github.com/minhoyoo-iotrust/WAIaaS#readme",
+  "homepage": "https://github.com/waiaas/WAIaaS#readme",
   "bugs": {
-    "url": "https://github.com/minhoyoo-iotrust/WAIaaS/issues"
+    "url": "https://github.com/waiaas/WAIaaS/issues"
   },
   "scripts": {
     "build": "vite build",
