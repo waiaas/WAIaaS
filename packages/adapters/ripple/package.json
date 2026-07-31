@@ -1,6 +1,6 @@
 {
   "name": "@waiaas/adapter-ripple",
-  "version": "2.16.1-rc.1",
+  "version": "2.16.1-rc.2",
   "description": "WAIaaS Ripple chain adapter - XRP Ledger native transfer support",
   "license": "MIT",
   "type": "module",

@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.16.1-rc.2](https://github.com/waiaas/WAIaaS/compare/v2.16.1-rc.1...v2.16.1-rc.2) (2026-07-31)
+
+
+### Bug Fixes
+
+* **daemon:** wire Solana RPC into x402 payment signing ([4218296](https://github.com/waiaas/WAIaaS/commit/421829685362284a1d0f40fdfe605a204957c0ab))
+* **daemon:** wire Solana RPC into x402 payment signing ([c0b8e8b](https://github.com/waiaas/WAIaaS/commit/c0b8e8be4944755f107115d54a0c3fad5d57feea))
+* **daemon:** wire Solana RPC into x402 payment signing ([f388b22](https://github.com/waiaas/WAIaaS/commit/f388b2273e01dce99e0b2bff0f8b06383fe77c14))
+
 ## [2.16.1-rc.1](https://github.com/waiaas/WAIaaS/compare/v2.16.1-rc...v2.16.1-rc.1) (2026-07-22)
 
 
