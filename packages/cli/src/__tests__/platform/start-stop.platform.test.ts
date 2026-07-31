@@ -261,12 +261,17 @@ describe('PLAT-01 stop platform tests', { timeout: 30_000 }, () => {
       harness = await startTestDaemon(dataDir);
       await waitForHealth(harness);
 
-      // Capture console.log to verify shutdown steps
+      // Capture shutdown steps. ConsoleLogger routes info to console.info and
+      // debug to console.debug, and in Node those are separate properties from
+      // console.log -- spying on log alone never sees them. Capture all three.
       const logs: string[] = [];
+      const collect = (...args: unknown[]) => { logs.push(args.map(String).join(' ')); };
       mockStdout.mockRestore();
-      mockStdout = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
-        logs.push(args.map(String).join(' '));
-      });
+      mockStdout = vi.spyOn(console, 'log').mockImplementation(collect);
+      const infoSpy = vi.spyOn(console, 'info').mockImplementation(collect);
+      const debugSpy = vi.spyOn(console, 'debug').mockImplementation(collect);
+      // Steps 2-4 and 7 are logged at debug level; the daemon defaults to info.
+      harness.daemon.logger.setLevel('debug');
       const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
       await harness.daemon.shutdown('TEST');
@@ -281,6 +286,8 @@ describe('PLAT-01 stop platform tests', { timeout: 30_000 }, () => {
       expect(harness.daemon.isShuttingDown).toBe(true);
       expect(exitSpy).toHaveBeenCalledWith(0);
       exitSpy.mockRestore();
+      infoSpy.mockRestore();
+      debugSpy.mockRestore();
       harness = null;
     } finally {
       if (harness) await stopTestDaemon(harness);
