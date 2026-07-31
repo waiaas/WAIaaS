@@ -58,7 +58,17 @@
 - **테스트 배지 `README.md:8` — 조치 불필요.** gist URL은 현재 `200`으로 정상 동작한다. 갱신 CI는 gist를 하드코딩하지 않고 레포 변수를 쓴다(`nightly.yml:69` `gistID: ${{ vars.TEST_BADGE_GIST_ID }}`, `secrets.GIST_SECRET`). 그리고 **gist는 조직이 소유할 수 없어** "조직으로 이전"이라는 선택지 자체가 없다. 계정을 유지하는 한 현행이 정답이고, 없애려면 배지 방식을 레포 파일 기반 등으로 바꿔야 하는데 이득이 없다.
 - **glama `README.md:9`·`glama.json` — 조치 불필요.** 옛 배지 URL이 `301 → https://glama.ai/mcp/servers/waiaas/WAIaaS/badges/score.svg → 200`으로 **glama 쪽이 이미 새 조직을 인식**한다. `glama.json`의 `maintainers: ["minhoyoo-iotrust"]`는 레포 경로가 아니라 **관리자 개인 식별자**라 그대로가 맞다. README URL을 리다이렉트 없는 주소로 정리하는 것은 미관 문제다.
 - **MCP 레지스트리 `packages/mcp/{server,package}.json` — 퍼블리시할 때 처리.** 앞선 기록의 "문자열만 바꾸면 기존 등록이 깨진다"는 **틀렸다.** 레지스트리 검색 결과 등록 자체가 없다(`registry.modelcontextprotocol.io/v0/servers?search=waiaas` → `count: 0`). 깨질 등록이 없으므로 지금 바꿔도 위험이 없고, 오히려 옛 이름으로 퍼블리시하면 소유권 검증에 실패한다. 퍼블리시 시점 요구사항: 이름을 `io.github.waiaas/waiaas`로, `package.json`의 `mcpName`을 같은 값으로, **org 네임스페이스는 인증 계정이 조직 Owner여야** 부여된다(CI에서 PAT를 쓸 경우 classic은 `read:org`, fine-grained는 Organization → Members → Read-only 필요). `server.json`의 `version`(현재 `2.11.0`)이 패키지 버전과 어긋나 있는 것도 그때 함께 맞춘다.
-- **GHCR 패키지 `ghcr.io/waiaas/waiaas` 공개 여부** — private이면 public으로 전환해야 GHCR 경로가 실사용 가능해진다. 다음 stable 릴리스 전에 정리하면 `latest`까지 새 네임스페이스로 정착한다.
+- **GHCR 패키지 공개 여부 — 2026-07-31 조사 완료, 마감 후 처리로 이월(사용자 결정).**
+
+  대상은 2개다: `waiaas`(데몬, compose 기본 이미지), `waiaas-push-relay`(`docs/wallet-sdk-integration.md:75`가 `docker run`을 안내). 둘 다 `waiaas/WAIaaS`에서 발행되며 조직 패키지 화면 기준 **Private / 다운로드 0**이다. 즉 매 릴리스마다 푸시는 되는데 아무도 받을 수 없는 상태다.
+
+  **막고 있는 것은 패키지 설정이 아니라 조직 정책이다.** 패키지의 Change package visibility 대화상자에서 Public·Internal이 비활성이고 "Setting is disabled by organization administrators"가 표시된다. 따라서 순서는 ① **Organization Settings → Packages → Package creation**(`https://github.com/organizations/waiaas/settings/packages`)에서 Public 허용 → ② 패키지 2개를 각각 Public으로 전환, 이다. 둘 다 조직 Owner 권한이 필요하다.
+
+  **이 정책이 의도된 것인지는 확인되지 않았다.** 조직 생성 시 기본값일 수도, 의도적으로 건 것일 수도 있다. 의도적이었다면 여는 대신 **`release.yml`의 `images:` 목록에서 GHCR 줄을 제거**해(`:276`, `:331`) "푸시하지만 못 받는" 불일치를 반대 방향으로 정리하는 편이 일관된다. 재개 시 이 판단이 첫 단계다.
+
+  급하지 않은 이유: Docker Hub `waiaas/daemon`이 **public이고 정상 동작**한다(태그 `2.16.1-rc.2` 확인, `v` 접두사 없음에 주의). `docker-compose.yml` 기본값도 그쪽을 가리키므로 사용자 경로는 막히지 않는다.
+
+  함께 정리할 것: 옛 계정 패키지 `ghcr.io/minhoyoo-iotrust/waiaas`가 **아직 public**이라 옛 문서·캐시를 따라온 사용자는 4월 `v2.16.0`을 계속 받는다. 폐기할지 남길지 결정이 필요하다(지우면 그 경로에 핀을 박은 사용자가 깨지고, 남기면 낡은 이미지가 계속 배포된다).
 
 ## 영향 범위
 
