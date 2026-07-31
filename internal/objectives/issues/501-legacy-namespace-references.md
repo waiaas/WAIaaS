@@ -3,7 +3,7 @@
 - **유형:** BUG
 - **심각도:** MEDIUM
 - **발견일:** 2026-07-31
-- **상태:** 부분 FIXED (실사용 참조 10파일 수정, 외부 등록 3건 + GHCR 공개 여부 미해결)
+- **상태:** 부분 FIXED (실사용 참조 10파일 수정. 배지·glama는 조치 불필요로 판정, MCP 퍼블리시와 GHCR 공개 여부만 잔여)
 - **관련 패키지:** 리포지터리 전반 (docker-compose, docs, packages/mcp)
 
 ## 현상
@@ -53,9 +53,11 @@
 
 **남은 작업 (외부 시스템 소유권 확인 필요, 이 이슈로 추적)**
 
-- `packages/mcp/server.json`·`packages/mcp/package.json` — `io.github.minhoyoo-iotrust/waiaas`. MCP 레지스트리의 네임스페이스 식별자(`name`/`mcpName`)라 소유권 검증·재등록 절차와 묶여 있다. 문자열만 바꾸면 등록이 깨질 수 있어 이번 수정에서 제외했다. 같은 파일의 `websiteUrl`·repository URL도 재등록 시 함께 바꾸는 편이 안전하다.
-- `README.md:8` — 테스트 배지가 옛 계정 gist를 가리킨다. 옮기려면 gist 이전이 선행되어야 한다.
-- `README.md:9`, `glama.json` — glama.ai 등록 메타. 서비스 쪽 등록 경로와 함께 갱신해야 한다.
+실측으로 셋 중 둘은 **조치 불필요**로 판정했다(2026-07-31).
+
+- **테스트 배지 `README.md:8` — 조치 불필요.** gist URL은 현재 `200`으로 정상 동작한다. 갱신 CI는 gist를 하드코딩하지 않고 레포 변수를 쓴다(`nightly.yml:69` `gistID: ${{ vars.TEST_BADGE_GIST_ID }}`, `secrets.GIST_SECRET`). 그리고 **gist는 조직이 소유할 수 없어** "조직으로 이전"이라는 선택지 자체가 없다. 계정을 유지하는 한 현행이 정답이고, 없애려면 배지 방식을 레포 파일 기반 등으로 바꿔야 하는데 이득이 없다.
+- **glama `README.md:9`·`glama.json` — 조치 불필요.** 옛 배지 URL이 `301 → https://glama.ai/mcp/servers/waiaas/WAIaaS/badges/score.svg → 200`으로 **glama 쪽이 이미 새 조직을 인식**한다. `glama.json`의 `maintainers: ["minhoyoo-iotrust"]`는 레포 경로가 아니라 **관리자 개인 식별자**라 그대로가 맞다. README URL을 리다이렉트 없는 주소로 정리하는 것은 미관 문제다.
+- **MCP 레지스트리 `packages/mcp/{server,package}.json` — 퍼블리시할 때 처리.** 앞선 기록의 "문자열만 바꾸면 기존 등록이 깨진다"는 **틀렸다.** 레지스트리 검색 결과 등록 자체가 없다(`registry.modelcontextprotocol.io/v0/servers?search=waiaas` → `count: 0`). 깨질 등록이 없으므로 지금 바꿔도 위험이 없고, 오히려 옛 이름으로 퍼블리시하면 소유권 검증에 실패한다. 퍼블리시 시점 요구사항: 이름을 `io.github.waiaas/waiaas`로, `package.json`의 `mcpName`을 같은 값으로, **org 네임스페이스는 인증 계정이 조직 Owner여야** 부여된다(CI에서 PAT를 쓸 경우 classic은 `read:org`, fine-grained는 Organization → Members → Read-only 필요). `server.json`의 `version`(현재 `2.11.0`)이 패키지 버전과 어긋나 있는 것도 그때 함께 맞춘다.
 - **GHCR 패키지 `ghcr.io/waiaas/waiaas` 공개 여부** — private이면 public으로 전환해야 GHCR 경로가 실사용 가능해진다. 다음 stable 릴리스 전에 정리하면 `latest`까지 새 네임스페이스로 정착한다.
 
 ## 영향 범위
