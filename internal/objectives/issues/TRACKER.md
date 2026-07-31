@@ -45,6 +45,7 @@
 | 498 | BUG | HIGH | Desktop 세션 타임아웃 후 recovery.key 재인증 불가 | — | FIXED | 2026-04-17 |
 | 499 | ENHANCEMENT | MEDIUM | Pushwoosh notification extra_fields 설정 지원 | — | FIXED | 2026-04-21 |
 | 500 | BUG | CRITICAL | x402 fetch 라우트가 Solana 서명에 rpc를 전달하지 않아 결제 100% 실패 | — | FIXED | 2026-07-30 |
+| 501 | BUG | MEDIUM | 조직 이전 후 남은 minhoyoo-iotrust 참조와 GHCR 패키지 접근 불가 | — | OPEN | — |
 
 ## Type Legend
 
@@ -56,9 +57,9 @@
 
 ## Summary
 
-- **OPEN:** 0
+- **OPEN:** 1
 - **PLANNED:** 0
 - **FIXED:** 492
 - **WONTFIX:** 1
-- **Total:** 494
+- **Total:** 495
 - **Archived:** 468 (001–468)

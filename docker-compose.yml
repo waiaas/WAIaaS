@@ -39,7 +39,10 @@
 
 services:
   daemon:
-    image: ghcr.io/minhoyoo-iotrust/waiaas:latest
+    # Published by release.yml to Docker Hub (waiaas/daemon) and GHCR
+    # (ghcr.io/waiaas/waiaas). Docker Hub is the default here because the GHCR
+    # package is not anonymously pullable yet.
+    image: ${WAIAAS_IMAGE:-waiaas/daemon:latest}
     container_name: waiaas-daemon
     ports:
       - "127.0.0.1:3100:3100"

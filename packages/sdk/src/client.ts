@@ -179,7 +179,7 @@ export class WAIaaSClient {
           '  npx @waiaas/cli init --auto-provision\n' +
           '  npx @waiaas/cli start &\n' +
           '  npx @waiaas/cli quickset\n' +
-          'Docs: https://github.com/minhoyoo-iotrust/WAIaaS',
+          'Docs: https://github.com/waiaas/WAIaaS',
         status: 0,
         retryable: false,
       });

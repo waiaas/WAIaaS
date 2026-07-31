@@ -134,8 +134,8 @@ The `/data` volume contains all persistent state:
 
 ## Links
 
-- [GitHub Repository](https://github.com/minhoyoo-iotrust/WAIaaS)
-- [Deployment Guide](https://github.com/minhoyoo-iotrust/WAIaaS/blob/main/docs/deployment.md)
+- [GitHub Repository](https://github.com/waiaas/WAIaaS)
+- [Deployment Guide](https://github.com/waiaas/WAIaaS/blob/main/docs/deployment.md)
 - [npm: @waiaas/cli](https://www.npmjs.com/package/@waiaas/cli)
 - [npm: @waiaas/sdk](https://www.npmjs.com/package/@waiaas/sdk)
 
