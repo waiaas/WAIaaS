@@ -30,7 +30,13 @@
 배포되는 산출물과 실행 경로를 우선했다.
 
 - `docker-compose.yml` — 이미지를 `${WAIAAS_IMAGE:-waiaas/daemon:latest}`로. 조직 소유 + 익명 pull 가능한 Docker Hub 경로를 기본값으로 두고, 환경 변수로 GHCR·로컬 빌드 이미지를 덮어쓸 수 있게 했다.
-- `apps/desktop/src-tauri/tauri.conf.json` — **updater 엔드포인트**(`releases/latest/download/latest.json`). 릴리스는 이제 새 조직에서 발행되므로 새 경로가 정확하다. 이미 설치된 클라이언트는 옛 URL이 박혀 있지만 GitHub 리다이렉트로 계속 동작하고, 이 변경은 이후 빌드부터 적용된다.
+- `apps/desktop/src-tauri/tauri.conf.json` — **updater 엔드포인트**(`releases/latest/download/latest.json`). **이건 미래 대비가 아니라 이미 깨진 것의 복구다.** 실측: 옛 URL은 `404`, 새 URL은 `200`. GitHub은 레포 이전 시 웹·API는 리다이렉트하지만 **릴리스 자산 다운로드 경로는 리다이렉트하지 않는다.** 따라서 옛 엔드포인트를 담은 빌드는 업데이트 확인이 매번 실패하고, 앱 입장에서 "새 버전 없음"과 구분되지 않아 조용히 낡은 버전에 머문다.
+
+  이전(2026-07-21) **이후** 빌드된 `desktop-v2.16.1-rc.1`(7/22)도 설정을 안 고친 채 나가 옛 URL을 담고 있다(`git show desktop-v2.16.1-rc.1:apps/desktop/src-tauri/tauri.conf.json` 확인).
+
+  이 수정은 **이후 빌드부터** 적용된다. 이미 설치된 앱은 URL이 바이너리에 박혀 있어 자가 치유가 불가능하다(자동 업데이트 자체가 깨진 것이라 자동으로 고칠 수 없다) — 수동 재설치가 필요하다. 유지보수자가 사실상 단독 사용자라 별도 공지 없이 재설치로 처리한다(2026-07-31 확인).
+
+  보안 영향은 없다. updater 설정에 minisign `pubkey`가 함께 박혀 있어 옛 주소에 가짜 `latest.json`이 올라와도 서명 검증에서 걸린다. 가용성 문제이지 무결성 문제가 아니다.
 - `packages/push-relay/Dockerfile` — OCI 라벨 `image.url`·`image.source`
 - `packages/sdk/src/client.ts` — 오류 메시지의 문서 링크
 - `packages/cli/src/commands/init.ts` — 생성되는 config 템플릿 주석
