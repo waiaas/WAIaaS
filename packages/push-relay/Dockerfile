@@ -61,8 +61,8 @@ FROM node:22-slim AS runner
 
 LABEL org.opencontainers.image.title="WAIaaS Push Relay" \
       org.opencontainers.image.description="Bridge ntfy topics to push notification services (Pushwoosh, FCM)" \
-      org.opencontainers.image.url="https://github.com/minhoyoo-iotrust/WAIaaS" \
-      org.opencontainers.image.source="https://github.com/minhoyoo-iotrust/WAIaaS" \
+      org.opencontainers.image.url="https://github.com/waiaas/WAIaaS" \
+      org.opencontainers.image.source="https://github.com/waiaas/WAIaaS" \
       org.opencontainers.image.vendor="WAIaaS" \
       org.opencontainers.image.licenses="MIT"
 

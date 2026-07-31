@@ -32,7 +32,7 @@ waiaas quickset --mode testnet     # Create wallets + MCP sessions
 
 ## Documentation
 
-Full documentation: [github.com/minhoyoo-iotrust/WAIaaS](https://github.com/minhoyoo-iotrust/WAIaaS)
+Full documentation: [github.com/waiaas/WAIaaS](https://github.com/waiaas/WAIaaS)
 
 ## License
 
