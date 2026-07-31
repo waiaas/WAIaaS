@@ -33,7 +33,7 @@ path = "data/waiaas.db"
 # telegram_bot_token = ""
 # telegram_chat_id = ""
 
-# Full reference: https://github.com/minhoyoo-iotrust/WAIaaS#configuration
+# Full reference: https://github.com/waiaas/WAIaaS#configuration
 `;
 
 export async function initCommand(dataDir: string, opts?: { autoProvision?: boolean }): Promise<void> {

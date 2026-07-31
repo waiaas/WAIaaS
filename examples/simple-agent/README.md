@@ -1,6 +1,6 @@
 # WAIaaS Simple Agent Example
 
-A minimal AI agent that demonstrates the core [WAIaaS](https://github.com/minhoyoo-iotrust/WAIaaS) SDK workflow: **check balance, conditionally send tokens, and wait for confirmation**.
+A minimal AI agent that demonstrates the core [WAIaaS](https://github.com/waiaas/WAIaaS) SDK workflow: **check balance, conditionally send tokens, and wait for confirmation**.
 
 Use this example as a starting point for building your own AI agent with wallet capabilities.
 

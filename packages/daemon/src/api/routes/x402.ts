@@ -22,10 +22,12 @@ import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { eq, or, and, isNull, desc } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { Database as SQLiteDatabase } from 'better-sqlite3';
+import { createSolanaRpc } from '@solana/kit';
 import { WAIaaSError, resolveX402Network, CAIP2_TO_NETWORK, sleep } from '@waiaas/core';
 import type { IPriceOracle, PolicyEvaluation, EventBus } from '@waiaas/core';
 import type { MasterPasswordRef } from '../middleware/master-auth.js';
 import type { AdapterPool } from '../../infrastructure/adapter-pool.js';
+import { resolveRpcUrl } from '../../infrastructure/adapter-pool.js';
 import type { DaemonConfig } from '../../infrastructure/config/loader.js';
 import { wallets, transactions, policies } from '../../infrastructure/database/schema.js';
 import type * as schema from '../../infrastructure/database/schema.js';
@@ -437,12 +439,20 @@ export function x402Routes(deps: X402RouteDeps): OpenAPIHono {
 
     try {
       // C1. Sign payment
+      // Solana signing needs an RPC client: the payer builds the transaction
+      // itself (blockhash lookup) because the facilitator only co-signs as
+      // feePayer. EVM signing is offline (EIP-712) and needs no RPC.
+      const signingRpc = resolvedChain === 'solana'
+        ? createSolanaRpc(resolveRpcUrl(deps.config.rpc, resolvedChain, resolvedNetwork))
+        : undefined;
+
       const paymentPayload = await signPayment(
         selected,
         deps.keyStore,
         walletId,
         wallet.publicKey,
         deps.passwordRef?.password ?? deps.masterPassword,
+        signingRpc,
       );
 
       // Fill resource.url in the payment payload

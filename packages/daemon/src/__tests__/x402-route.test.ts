@@ -669,6 +669,79 @@ describe('POST /v1/x402/fetch', () => {
   });
 
   // -----------------------------------------------------------------------
+  // 5b. Solana RPC wiring (issue #500)
+  // -----------------------------------------------------------------------
+
+  describe('Solana payment signing', () => {
+    const SOLANA_DEVNET = 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1';
+    const SOLANA_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
+    const SOLANA_PAY_TO = 'GsbwXfJraMomNxBcjK9jBrJnkGXbBSFVfKAKzKKDkkeF';
+
+    function allowPayment(walletId: string): void {
+      insertPolicy({
+        type: 'X402_ALLOWED_DOMAINS',
+        rules: JSON.stringify({ domains: ['api.example.com'] }),
+      });
+      insertPolicy({
+        walletId,
+        type: 'SPENDING_LIMIT',
+        rules: JSON.stringify({
+          instant_max: '10000000',
+          notify_max: '50000000',
+          delay_max: '100000000',
+          delay_seconds: 60,
+        }),
+      });
+    }
+
+    function mockPaidFlow(network: string, asset: string, payTo: string): void {
+      mockSafeFetchWithRedirects
+        .mockResolvedValueOnce(make402Response({ network, asset, payTo, amount: '50000' }))
+        .mockResolvedValueOnce(
+          new Response('{"result":"paid content"}', {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+    }
+
+    it('passes an RPC client to signPayment for Solana networks', async () => {
+      const walletId = await createTestWallet('solana', 'testnet');
+      const auth = await createSessionToken(walletId);
+      allowPayment(walletId);
+      mockPaidFlow(SOLANA_DEVNET, SOLANA_MINT, SOLANA_PAY_TO);
+
+      const res = await app.request(makeRequest(auth));
+      expect(res.status).toBe(200);
+
+      // Solana signing derives the transaction lifetime from getLatestBlockhash,
+      // so the route must hand the signer an RPC client (6th argument).
+      expect(mockSignPayment).toHaveBeenCalledTimes(1);
+      const rpc = mockSignPayment.mock.calls[0][5] as { getLatestBlockhash?: unknown } | undefined;
+      expect(rpc).toBeDefined();
+      expect(typeof rpc!.getLatestBlockhash).toBe('function');
+    });
+
+    it('does not build an RPC client for EVM networks', async () => {
+      const walletId = await createTestWallet();
+      const auth = await createSessionToken(walletId);
+      allowPayment(walletId);
+      mockPaidFlow(
+        'eip155:84532',
+        '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+        '0xReceiverAddress1234567890abcdef12345678',
+      );
+
+      const res = await app.request(makeRequest(auth));
+      expect(res.status).toBe(200);
+
+      // EVM payments are signed offline (EIP-712) -- no RPC round trip.
+      expect(mockSignPayment).toHaveBeenCalledTimes(1);
+      expect(mockSignPayment.mock.calls[0][5]).toBeUndefined();
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // 6. DELAY timeout
   // -----------------------------------------------------------------------
 
