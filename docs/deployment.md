@@ -129,7 +129,7 @@ mkdir waiaas && cd waiaas
 ```yaml
 services:
   daemon:
-    image: ghcr.io/minho-yoo/waiaas:latest
+    image: waiaas/daemon:latest
     container_name: waiaas-daemon
     ports:
       - "127.0.0.1:3100:3100"
@@ -263,7 +263,7 @@ For fully autonomous Docker deployments (no pre-set password), add `WAIAAS_AUTO_
 ```yaml
 services:
   daemon:
-    image: ghcr.io/minho-yoo/waiaas:latest
+    image: waiaas/daemon:latest
     environment:
       - WAIAAS_AUTO_PROVISION=true
       - WAIAAS_DATA_DIR=/data
