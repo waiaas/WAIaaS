@@ -1,6 +1,6 @@
 {
   "name": "@waiaas/push-relay",
-  "version": "2.16.1-rc.1",
+  "version": "2.16.1-rc.2",
   "description": "WAIaaS Push Relay Server - bridge ntfy topics to push notification services (Pushwoosh, FCM)",
   "license": "MIT",
   "type": "module",
