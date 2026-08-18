@@ -47,7 +47,7 @@
 | 500 | BUG | CRITICAL | x402 fetch 라우트가 Solana 서명에 rpc를 전달하지 않아 결제 100% 실패 | — | FIXED | 2026-07-30 |
 | 501 | BUG | MEDIUM | 조직 이전 후 남은 minhoyoo-iotrust 참조와 GHCR 패키지 접근 불가 | — | OPEN | — |
 | 502 | BUG | HIGH | Sepolia RPC 기본값이 빌트인 풀과 어긋나 스마트 계정 생성이 500으로 실패 | — | FIXED | 2026-08-15 |
-| 503 | BUG | HIGH | config.rpc 직접 참조 경로가 RpcPool 폴백과 Admin Settings 핫리로드를 모두 우회 | — | OPEN | — |
+| 503 | BUG | HIGH | config.rpc 직접 참조 경로가 RpcPool 폴백과 Admin Settings 핫리로드를 모두 우회 | — | 부분 FIXED | 2026-08-18 |
 
 ## Type Legend
 
