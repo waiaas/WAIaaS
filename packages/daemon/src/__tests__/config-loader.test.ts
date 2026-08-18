@@ -9,6 +9,8 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { loadConfig, parseEnvValue, detectNestedSections, DaemonConfigSchema } from '../infrastructure/config/index.js';
 import { SETTING_DEFINITIONS } from '../infrastructure/settings/setting-keys.js';
+import { configKeyToNetwork } from '../infrastructure/adapter-pool.js';
+import { BUILT_IN_RPC_DEFAULTS } from '@waiaas/core';
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -374,7 +376,38 @@ describe('EVM RPC config', () => {
       expect(value).toBeDefined();
       expect(typeof value).toBe('string');
       expect(value.length).toBeGreaterThan(0);
-      expect(value).toContain('drpc.org');
+      expect(value).toMatch(/^https:\/\//);
+    }
+  });
+
+  // Issue #502: the Sepolia default drifted away from BUILT_IN_RPC_DEFAULTS because
+  // the same value is declared in three places and #210 only updated one of them.
+  // A stale default here silently bypasses the RpcPool fallback (see #503).
+  it('every RPC default matches the first built-in pool endpoint', () => {
+    const dir = saveTempDir(createTempDir());
+    const config = loadConfig(dir);
+
+    for (const [key, value] of Object.entries(config.rpc)) {
+      const network = configKeyToNetwork(key);
+      if (!network) continue;
+      const builtIn = BUILT_IN_RPC_DEFAULTS[network];
+      if (!builtIn) continue;
+      expect(value, `config.rpc.${key} must match BUILT_IN_RPC_DEFAULTS['${network}'][0]`)
+        .toBe(builtIn[0]);
+    }
+  });
+
+  it('every Admin Settings RPC default matches the config default', () => {
+    const dir = saveTempDir(createTempDir());
+    const config = loadConfig(dir);
+
+    for (const def of SETTING_DEFINITIONS) {
+      if (def.category !== 'rpc') continue;
+      const key = def.key.replace('rpc.', '');
+      const configValue = (config.rpc as Record<string, string>)[key];
+      if (configValue === undefined) continue;
+      expect(def.defaultValue, `SETTING_DEFINITIONS['${def.key}'] must match config.rpc.${key}`)
+        .toBe(configValue);
     }
   });
 
