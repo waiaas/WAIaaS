@@ -57,10 +57,19 @@ export function createOwnerAuth(deps: OwnerAuthDeps) {
     const signature = c.req.header('X-Owner-Signature');
     const message = c.req.header('X-Owner-Message');
     const ownerAddress = c.req.header('X-Owner-Address');
+    const messageEncoding = c.req.header('X-Owner-Message-Encoding');
 
     if (!signature || !message || !ownerAddress) {
       throw new WAIaaSError('INVALID_SIGNATURE', {
         message: 'X-Owner-Signature, X-Owner-Message, and X-Owner-Address headers are required',
+      });
+    }
+
+    // Reject unknown encodings rather than silently falling back: a typo would
+    // otherwise surface only as a signature mismatch, which is unreadable.
+    if (messageEncoding !== undefined && messageEncoding !== 'base64' && messageEncoding !== 'utf8') {
+      throw new WAIaaSError('INVALID_SIGNATURE', {
+        message: `Unsupported X-Owner-Message-Encoding '${messageEncoding}'. Use 'base64', 'utf8', or omit the header.`,
       });
     }
 
@@ -117,7 +126,9 @@ export function createOwnerAuth(deps: OwnerAuthDeps) {
     if (wallet.chain === 'ethereum') {
       // EVM SIWE verification (EIP-4361 + EIP-191)
       // For SIWE: X-Owner-Message is base64-encoded EIP-4361 message (multi-line messages
-      // cannot be sent as raw HTTP header values), X-Owner-Signature is 0x-prefixed hex
+      // cannot be sent as raw HTTP header values), X-Owner-Signature is 0x-prefixed hex.
+      // X-Owner-Message-Encoding is not consulted here -- SIWE messages are always
+      // multi-line, so base64 is the only representation that survives a header.
       const decodedMessage = Buffer.from(message, 'base64').toString('utf8');
       const result = await verifySIWE({
         message: decodedMessage,
@@ -137,7 +148,21 @@ export function createOwnerAuth(deps: OwnerAuthDeps) {
         const sodium = loadSodium();
 
         const signatureBytes = Buffer.from(signature, 'base64');
-        const messageBytes = Buffer.from(message, 'utf8');
+
+        // HTTP header values are latin1 and cannot carry newlines, so a prompt the
+        // owner actually reads in the wallet popup (Korean text, multiple lines)
+        // cannot be sent raw. Opt in with X-Owner-Message-Encoding: base64; omitting
+        // the header keeps the original raw-UTF8 behaviour for existing clients.
+        const messageBytes = messageEncoding === 'base64'
+          ? Buffer.from(message, 'base64')
+          : Buffer.from(message, 'utf8');
+
+        if (messageEncoding === 'base64' && messageBytes.length === 0) {
+          throw new WAIaaSError('INVALID_SIGNATURE', {
+            message: 'X-Owner-Message is declared base64 but decodes to an empty message',
+          });
+        }
+
         const publicKeyBytes = decodeBase58(ownerAddress);
 
         // Validate key length

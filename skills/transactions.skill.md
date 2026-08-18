@@ -532,12 +532,33 @@ Response (200):
 
 #### POST /v1/transactions/{id}/approve -- Approve Transaction (ownerAuth)
 
-Owner approves a pending-approval transaction. Requires **ownerAuth** (SIWS/SIWE signature via `X-Owner-Signature` header).
+Owner approves a pending-approval transaction. Requires **ownerAuth**: the owner signs the approval prompt and sends the signature, the prompt, and the owner address together.
+
+| Header | Required | Value |
+|---|---|---|
+| `X-Owner-Signature` | yes | Solana: base64 Ed25519 detached signature. EVM: `0x`-prefixed hex |
+| `X-Owner-Message` | yes | The exact text that was signed |
+| `X-Owner-Address` | yes | Must match the wallet's registered owner |
+| `X-Owner-Message-Encoding` | no | `base64` or `utf8`. Omit for `utf8` |
+
+`X-Owner-Message-Encoding: base64` lets the signed prompt contain non-ASCII text and line breaks, which a raw header value cannot carry. Use it whenever the prompt is something a person reads in their wallet popup. EVM/SIWE messages are always base64 regardless of this header, since they are multi-line by definition.
 
 ```bash
+# ASCII prompt (encoding header omitted)
 curl -s -X POST http://localhost:3100/v1/transactions/01958f3c-9999-7000-8000-abcdef999999/approve \
-  -H 'X-Owner-Signature: <siws-or-siwe-signature>'
+  -H 'X-Owner-Signature: <base64-ed25519-signature>' \
+  -H 'X-Owner-Message: Approve purchase 5 USDC' \
+  -H 'X-Owner-Address: <owner-address>'
+
+# Human-readable prompt with non-ASCII text or newlines
+curl -s -X POST http://localhost:3100/v1/transactions/01958f3c-9999-7000-8000-abcdef999999/approve \
+  -H 'X-Owner-Signature: <base64-ed25519-signature>' \
+  -H "X-Owner-Message: $(printf 'Approve purchase\nAmount: 5 USDC' | base64)" \
+  -H 'X-Owner-Message-Encoding: base64' \
+  -H 'X-Owner-Address: <owner-address>'
 ```
+
+The signature must be made over the **decoded** bytes, not the base64 string.
 
 Response (200):
 ```json
@@ -554,8 +575,12 @@ Owner rejects a pending-approval transaction. Requires **ownerAuth**.
 
 ```bash
 curl -s -X POST http://localhost:3100/v1/transactions/01958f3c-9999-7000-8000-abcdef999999/reject \
-  -H 'X-Owner-Signature: <siws-or-siwe-signature>'
+  -H 'X-Owner-Signature: <base64-ed25519-signature>' \
+  -H 'X-Owner-Message: Reject purchase 5 USDC' \
+  -H 'X-Owner-Address: <owner-address>'
 ```
+
+Same headers as approve, including the optional `X-Owner-Message-Encoding: base64`.
 
 Response (200):
 ```json
