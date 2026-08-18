@@ -3,7 +3,7 @@
 - **유형:** BUG
 - **심각도:** MEDIUM
 - **발견일:** 2026-07-31
-- **상태:** 부분 FIXED (실사용 참조 10파일 수정. 배지·glama는 조치 불필요로 판정, MCP 퍼블리시와 GHCR 공개 여부만 잔여)
+- **상태:** 부분 FIXED (실사용 참조 11파일 수정. 배지·glama·옛 계정 패키지는 조치 불필요로 종결, MCP 퍼블리시와 GHCR 공개 여부만 잔여)
 - **관련 패키지:** 리포지터리 전반 (docker-compose, docs, packages/mcp)
 
 ## 현상
@@ -58,17 +58,21 @@
 - **테스트 배지 `README.md:8` — 조치 불필요.** gist URL은 현재 `200`으로 정상 동작한다. 갱신 CI는 gist를 하드코딩하지 않고 레포 변수를 쓴다(`nightly.yml:69` `gistID: ${{ vars.TEST_BADGE_GIST_ID }}`, `secrets.GIST_SECRET`). 그리고 **gist는 조직이 소유할 수 없어** "조직으로 이전"이라는 선택지 자체가 없다. 계정을 유지하는 한 현행이 정답이고, 없애려면 배지 방식을 레포 파일 기반 등으로 바꿔야 하는데 이득이 없다.
 - **glama `README.md:9`·`glama.json` — 조치 불필요.** 옛 배지 URL이 `301 → https://glama.ai/mcp/servers/waiaas/WAIaaS/badges/score.svg → 200`으로 **glama 쪽이 이미 새 조직을 인식**한다. `glama.json`의 `maintainers: ["minhoyoo-iotrust"]`는 레포 경로가 아니라 **관리자 개인 식별자**라 그대로가 맞다. README URL을 리다이렉트 없는 주소로 정리하는 것은 미관 문제다.
 - **MCP 레지스트리 `packages/mcp/{server,package}.json` — 퍼블리시할 때 처리.** 앞선 기록의 "문자열만 바꾸면 기존 등록이 깨진다"는 **틀렸다.** 레지스트리 검색 결과 등록 자체가 없다(`registry.modelcontextprotocol.io/v0/servers?search=waiaas` → `count: 0`). 깨질 등록이 없으므로 지금 바꿔도 위험이 없고, 오히려 옛 이름으로 퍼블리시하면 소유권 검증에 실패한다. 퍼블리시 시점 요구사항: 이름을 `io.github.waiaas/waiaas`로, `package.json`의 `mcpName`을 같은 값으로, **org 네임스페이스는 인증 계정이 조직 Owner여야** 부여된다(CI에서 PAT를 쓸 경우 classic은 `read:org`, fine-grained는 Organization → Members → Read-only 필요). `server.json`의 `version`(현재 `2.11.0`)이 패키지 버전과 어긋나 있는 것도 그때 함께 맞춘다.
-- **GHCR 패키지 공개 여부 — 2026-07-31 조사 완료, 마감 후 처리로 이월(사용자 결정).**
+- **GHCR 패키지 공개 여부 — 2026-07-31 조사, 2026-08-06 재조사로 진단 정정. 미결.**
 
-  대상은 2개다: `waiaas`(데몬, compose 기본 이미지), `waiaas-push-relay`(`docs/wallet-sdk-integration.md:75`가 `docker run`을 안내). 둘 다 `waiaas/WAIaaS`에서 발행되며 조직 패키지 화면 기준 **Private / 다운로드 0**이다. 즉 매 릴리스마다 푸시는 되는데 아무도 받을 수 없는 상태다.
+  대상은 2개다: `waiaas`(데몬), `waiaas-push-relay`. 둘 다 `waiaas/WAIaaS`에서 발행되며 **익명 pull이 `403 DENIED`**다(2026-08-06 `ghcr.io/v2/{pkg}/tags/list` 실측).
 
-  **막고 있는 것은 패키지 설정이 아니라 조직 정책이다.** 패키지의 Change package visibility 대화상자에서 Public·Internal이 비활성이고 "Setting is disabled by organization administrators"가 표시된다. 따라서 순서는 ① **Organization Settings → Packages → Package creation**(`https://github.com/organizations/waiaas/settings/packages`)에서 Public 허용 → ② 패키지 2개를 각각 Public으로 전환, 이다. 둘 다 조직 Owner 권한이 필요하다.
+  **막고 있는 것은 패키지 설정이 아니라 조직 정책이다.** 패키지의 Change package visibility 대화상자에서 Public·Internal이 비활성이고 "Setting is disabled by organization administrators"가 표시된다. 따라서 순서는 ① **Organization Settings → Packages → Package creation**(`https://github.com/organizations/waiaas/settings/packages`)에서 Public 허용 → ② 패키지 2개를 각각 Public으로 전환, 이다. 둘 다 조직 Owner 권한이 필요하며 **REST API로는 불가능하다**(패키지 visibility 변경도, 조직 패키지 정책도 엔드포인트가 없다. 웹 UI 전용).
 
-  **이 정책이 의도된 것인지는 확인되지 않았다.** 조직 생성 시 기본값일 수도, 의도적으로 건 것일 수도 있다. 의도적이었다면 여는 대신 **`release.yml`의 `images:` 목록에서 GHCR 줄을 제거**해(`:276`, `:331`) "푸시하지만 못 받는" 불일치를 반대 방향으로 정리하는 편이 일관된다. 재개 시 이 판단이 첫 단계다.
+  **2026-08-06 정정 — "아무도 받을 수 없다"는 진단은 부정확했다.** 앞선 기록은 push-relay가 영향받는 근거로 `docs/wallet-sdk-integration.md:75`를 들었으나, 그 줄은 `docker run -d -p 3200:3200 -v /data:/data waiaas/push-relay`로 **Docker Hub 경로**이지 GHCR을 안내하지 않는다. 레포 전체를 훑어도 `ghcr.io`를 **당기는(pull) 곳은 한 군데도 없다**(`release.yml:261`·`:276`·`:316`·`:331`은 push, `:472`는 릴리스 요약 출력). 정확한 상태는 "아무도 못 받는 이미지를 푸시한다"가 아니라 **"아무도 참조하지 않는 중복 경로에 푸시한다"**이다.
 
-  급하지 않은 이유: Docker Hub `waiaas/daemon`이 **public이고 정상 동작**한다(태그 `2.16.1-rc.2` 확인, `v` 접두사 없음에 주의). `docker-compose.yml` 기본값도 그쪽을 가리키므로 사용자 경로는 막히지 않는다.
+  **이 정책이 의도된 것인지는 여전히 확인되지 않았다.** 조직 audit log는 free plan이라 접근 불가(`orgs/waiaas/audit-log` → 404)이고, `GET /orgs/{org}` 응답에 패키지 정책 필드 자체가 없어 API로 조회할 방법이 없다. 정황은 "기본값 미조정" 쪽이다. 의도적 차단이었다면 `release.yml`에서 푸시를 뺐을 것이고, `docker-compose.yml:43` 주석도 "GHCR이 아직 익명 pull이 안 돼서 Docker Hub를 기본으로 둔다"는 취지로 적혀 있다. 확증은 아니다. 의도적이었다면 여는 대신 **`release.yml`에서 GHCR을 제거**하는 편이 일관되며, 그때 손댈 곳은 `:276`·`:331`(images) + `:472`(요약) + `:261`·`:316`(로그인 스텝)이다.
 
-  함께 정리할 것: 옛 계정 패키지 `ghcr.io/minhoyoo-iotrust/waiaas`가 **아직 public**이라 옛 문서·캐시를 따라온 사용자는 4월 `v2.16.0`을 계속 받는다. 폐기할지 남길지 결정이 필요하다(지우면 그 경로에 핀을 박은 사용자가 깨지고, 남기면 낡은 이미지가 계속 배포된다).
+  급하지 않은 이유: **Docker Hub 양쪽 모두 public이고 최신이다**(2026-08-06 실측 — `waiaas/daemon` pull 11,986 / `waiaas/push-relay` pull 6,345, 둘 다 `2.16.1-rc.2`·`latest` 보유, 2026-07-31 갱신). 실사용 참조도 전부 이쪽을 가리킨다. `v` 접두사가 없는 점에 주의.
+
+  옛 계정 패키지 `ghcr.io/minhoyoo-iotrust/waiaas`는 **public 유지로 종결**(2026-08-06 사용자 결정). 여전히 익명 접근 200이고 `latest`도 살아 있지만, 조직이 아니라 **개인 계정 소유라 이 레포의 관리 범위 밖**이고 소유자가 판단할 사안이다. 이 레포에서 그 경로를 참조하는 곳은 이제 없다.
+
+- **`docs/deployment.md` 누락분 — 2026-08-06 수정.** 2026-07-31 정리에서 빠졌던 곳이다. `:132`·`:266`이 `ghcr.io/minho-yoo/waiaas:latest`를 안내했는데, `minho-yoo`는 `minhoyoo-iotrust`와도 다른 **제3의 계정명**이라 치환 패턴에 걸리지 않았다. 이 경로는 익명 접근이 403이라 **배포 가이드를 그대로 따라 하면 막힌다.** 두 곳 모두 `waiaas/daemon:latest`로 교체했다. 전수 확인 결과 `docs/` 안의 나머지 이미지 참조(`seo/mcp-wallet.md:173`, `seo/what-is-ai-wallet.md:189`, `admin-manual/desktop-installation.md:286`, `wallet-sdk-integration.md:75`)는 전부 Docker Hub 경로로 정상이다. 남은 `ghcr.io` 참조는 `internal/design/40-telegram-bot-docker.md:2101`(`ghcr.io/waiaas/daemon:0.2.0`, 존재하지 않는 경로) 하나인데, 작성 시점 스냅샷인 설계 문서라 소급 수정하지 않는다.
 
 ## 영향 범위
 
@@ -76,10 +80,12 @@
 - `packages/push-relay/Dockerfile`, `packages/sdk/src/client.ts`, `packages/cli/src/commands/init.ts`
 - `packages/cli/README.md`, `packages/sdk/README.md`, `docker/README.md`, `examples/simple-agent/README.md`
 - `internal/design/74-wallet-sdk-daemon-components.md`
+- `docs/deployment.md` (2026-08-06 추가 — 위 "누락분" 항목 참조)
 
 ## 테스트 항목
 
 - [x] `docker compose config`로 이미지 참조가 `waiaas/daemon:latest`로 해석되는지
 - [x] `WAIAAS_IMAGE` 오버라이드가 동작하는지(로컬 빌드 이미지 지정)
 - [x] `waiaas/daemon:latest`가 익명으로 pull 가능한지(manifest 조회)
+- [x] `docs/` 전체 이미지 참조 전수 확인 — 남은 경로가 전부 익명 pull 가능한지 (2026-08-06)
 - [ ] 새 GHCR 패키지 public 전환 후 `ghcr.io/waiaas/waiaas:latest` 접근 확인 (다음 stable 릴리스 후)
