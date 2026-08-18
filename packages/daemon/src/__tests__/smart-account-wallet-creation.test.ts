@@ -21,6 +21,8 @@ import type { SmartAccountService } from '../infrastructure/smart-account/index.
 import type { SettingsService } from '../infrastructure/settings/settings-service.js';
 import type { OpenAPIHono } from '@hono/zod-openapi';
 import type * as schema from '../infrastructure/database/schema.js';
+import { RpcPool } from '@waiaas/core';
+import { AdapterPool } from '../infrastructure/adapter-pool.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -35,6 +37,8 @@ let passwordHash: string;
 // ---------------------------------------------------------------------------
 
 const MOCK_EOA_PUBLIC_KEY = '0xEOA1111111111111111111111111111111111111';
+/** anvil account #0 private key -- a valid secp256k1 scalar for viem. */
+const TEST_PRIVATE_KEY_HEX = 'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 const MOCK_SMART_ACCOUNT_ADDRESS = '0xSMART2222222222222222222222222222222222';
 
 function mockKeyStore(): LocalKeyStore {
@@ -43,7 +47,9 @@ function mockKeyStore(): LocalKeyStore {
       publicKey: MOCK_EOA_PUBLIC_KEY,
       encryptedPrivateKey: new Uint8Array(64),
     }),
-    decryptPrivateKey: async () => new Uint8Array(32),
+    // A zero-filled key is not a valid secp256k1 scalar; privateKeyToAccount would
+    // throw before the smart account path is ever reached. Use anvil's test key.
+    decryptPrivateKey: async () => Buffer.from(TEST_PRIVATE_KEY_HEX, 'hex'),
     releaseKey: () => {},
     hasKey: async () => true,
     deleteKey: async () => {},
@@ -122,6 +128,7 @@ describe('Smart Account Wallet Creation', () => {
   function createTestApp(opts: {
     settingsOverrides?: Record<string, string>;
     smartAccountService?: SmartAccountService | null;
+    adapterPool?: AdapterPool;
   } = {}) {
     const conn = createDatabase(':memory:');
     sqliteConn = conn.sqlite;
@@ -144,9 +151,10 @@ describe('Smart Account Wallet Creation', () => {
       config,
       settingsService: ss,
       smartAccountService: smartAccountSvc,
+      adapterPool: opts.adapterPool,
     });
 
-    return { app, sqlite: sqliteConn, db, ss };
+    return { app, sqlite: sqliteConn, db, ss, config };
   }
 
   // -----------------------------------------------------------------------
@@ -355,5 +363,111 @@ describe('Smart Account Wallet Creation', () => {
     expect(body.accountType).toBe('eoa');
     expect(body.signerKey).toBeNull();
     expect(body.deployed).toBe(true);
+  });
+
+  // -----------------------------------------------------------------------
+  // RPC endpoint fallback (#502, #503)
+  //
+  // CREATE2 address prediction needs a live eth_call. Before this, the route
+  // read a single URL from config, so one dead endpoint failed wallet creation
+  // even when the RpcPool held healthy candidates.
+  // -----------------------------------------------------------------------
+
+  describe('RPC endpoint fallback', () => {
+    const DEAD_URL = 'https://dead-1.invalid';
+    const DEAD_URL_2 = 'https://dead-2.invalid';
+    const GOOD_URL = 'https://good.example';
+    const NETWORK = 'ethereum-sepolia';
+
+    /** Records the RPC URL behind each createSmartAccount call, failing on `failUrls`. */
+    function trackingSmartAccountService(failUrls: string[]): {
+      service: SmartAccountService;
+      usedUrls: string[];
+    } {
+      const usedUrls: string[] = [];
+      const service = {
+        createSmartAccount: vi.fn(async (args: { client: { transport: { url?: string } } }) => {
+          const url = args.client.transport.url ?? '';
+          usedUrls.push(url);
+          if (failUrls.includes(url)) throw new Error(`HTTP request failed: ${url}`);
+          return {
+            address: MOCK_SMART_ACCOUNT_ADDRESS,
+            signerKey: MOCK_EOA_PUBLIC_KEY,
+            entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
+            factoryAddress: '0x91E60e0613810449d098b0b5Ec8b51A0FE8c8985',
+            account: { address: MOCK_SMART_ACCOUNT_ADDRESS },
+          };
+        }),
+        getDefaultEntryPoint: () => '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as `0x${string}`,
+      } as unknown as SmartAccountService;
+      return { service, usedUrls };
+    }
+
+    function pooledApp(urls: string[], failUrls: string[]) {
+      const rpcPool = new RpcPool();
+      rpcPool.register(NETWORK, urls);
+      const { service, usedUrls } = trackingSmartAccountService(failUrls);
+      const ctx = createTestApp({
+        settingsOverrides: { 'smart_account.enabled': 'true' },
+        smartAccountService: service,
+        adapterPool: new AdapterPool(rpcPool),
+      });
+      return { rpcPool, usedUrls, ...ctx };
+    }
+
+    function createSmartWallet(name: string) {
+      return app.request('/v1/wallets', {
+        method: 'POST',
+        headers: masterAuthHeaders(),
+        body: JSON.stringify({ name, chain: 'ethereum', environment: 'testnet', accountType: 'smart' }),
+      });
+    }
+
+    it('falls back to the next pool endpoint when the first one fails', async () => {
+      const { rpcPool, usedUrls } = pooledApp([DEAD_URL, GOOD_URL], [DEAD_URL]);
+
+      const res = await createSmartWallet('fallback-ok');
+
+      expect(res.status).toBe(201);
+      expect(usedUrls).toEqual([DEAD_URL, GOOD_URL]);
+
+      const status = rpcPool.getStatus(NETWORK);
+      expect(status.find((e) => e.url === DEAD_URL)?.failureCount).toBe(1);
+      expect(status.find((e) => e.url === GOOD_URL)?.failureCount).toBe(0);
+    });
+
+    it('tries every candidate before giving up', async () => {
+      const { rpcPool, usedUrls } = pooledApp([DEAD_URL, DEAD_URL_2], [DEAD_URL, DEAD_URL_2]);
+
+      const res = await createSmartWallet('fallback-exhausted');
+
+      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(usedUrls).toEqual([DEAD_URL, DEAD_URL_2]);
+      for (const entry of rpcPool.getStatus(NETWORK)) {
+        expect(entry.failureCount).toBe(1);
+      }
+    });
+
+    it('does not leave a wallet row behind when every endpoint fails', async () => {
+      const { sqlite } = pooledApp([DEAD_URL, DEAD_URL_2], [DEAD_URL, DEAD_URL_2]);
+
+      await createSmartWallet('fallback-no-orphan');
+
+      const rows = sqlite.prepare('SELECT COUNT(*) AS n FROM wallets').get() as { n: number };
+      expect(rows.n).toBe(0);
+    });
+
+    it('uses the config URL exactly once when no RpcPool is wired', async () => {
+      const { service, usedUrls } = trackingSmartAccountService([]);
+      const { config } = createTestApp({
+        settingsOverrides: { 'smart_account.enabled': 'true' },
+        smartAccountService: service,
+      });
+
+      const res = await createSmartWallet('legacy-no-pool');
+
+      expect(res.status).toBe(201);
+      expect(usedUrls).toEqual([config.rpc.evm_ethereum_sepolia]);
+    });
   });
 });

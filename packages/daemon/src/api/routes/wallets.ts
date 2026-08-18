@@ -573,12 +573,6 @@ export function walletCrudRoutes(deps: WalletCrudRouteDeps): OpenAPIHono {
       entryPoint = deps.settingsService?.get('smart_account.entry_point')
         ?? '0x0000000071727De22E5E9d8BAf0edAc6f37da032';
 
-      // Create viem client for address prediction
-      const rpcUrl = resolveRpcUrl(
-        deps.config.rpc,
-        chain,
-        network,
-      );
       const { createPublicClient, http } = await import('viem');
       const { privateKeyToAccount } = await import('viem/accounts');
 
@@ -591,16 +585,54 @@ export function walletCrudRoutes(deps: WalletCrudRouteDeps): OpenAPIHono {
       const { EVM_CHAIN_MAP } = await import('@waiaas/adapter-evm');
       const chainEntry = EVM_CHAIN_MAP[network as keyof typeof EVM_CHAIN_MAP];
       const viemChain = chainEntry?.viemChain;
-      const client = createPublicClient({
-        chain: viemChain,
-        transport: http(rpcUrl),
-      });
 
-      const smartAccountInfo = await deps.smartAccountService.createSmartAccount({
-        owner: ownerAccount,
-        client,
-        entryPoint: entryPoint as `0x${string}`,
-      });
+      // Address prediction needs a live eth_call, so a single dead endpoint would
+      // fail wallet creation outright (#502). Walk the RpcPool candidates instead,
+      // reporting each outcome so cooldowns apply. Falls back to the config URL
+      // when no pool is wired (legacy path).
+      const rpcPool = deps.adapterPool?.pool;
+      const isPooled = rpcPool?.hasNetwork(network) ?? false;
+      const attempts = isPooled ? rpcPool!.getStatus(network).length : 1;
+
+      let smartAccountInfo: Awaited<
+        ReturnType<NonNullable<typeof deps.smartAccountService>['createSmartAccount']>
+      > | null = null;
+      let lastRpcError: unknown;
+
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        let rpcUrl: string;
+        if (isPooled) {
+          try {
+            rpcUrl = rpcPool!.getUrl(network);
+          } catch (err) {
+            // Every candidate is in cooldown -- stop and surface the last real error
+            lastRpcError = lastRpcError ?? err;
+            break;
+          }
+        } else {
+          rpcUrl = resolveRpcUrl(deps.config.rpc, chain, network);
+        }
+
+        const client = createPublicClient({
+          chain: viemChain,
+          transport: http(rpcUrl),
+        });
+
+        try {
+          smartAccountInfo = await deps.smartAccountService.createSmartAccount({
+            owner: ownerAccount,
+            client,
+            entryPoint: entryPoint as `0x${string}`,
+          });
+          if (isPooled) rpcPool!.reportSuccess(network, rpcUrl);
+          break;
+        } catch (err) {
+          lastRpcError = err;
+          if (isPooled) rpcPool!.reportFailure(network, rpcUrl);
+        }
+      }
+
+      if (!smartAccountInfo) throw lastRpcError;
 
       walletPublicKey = smartAccountInfo.address;
       factoryAddress = smartAccountInfo.factoryAddress;
