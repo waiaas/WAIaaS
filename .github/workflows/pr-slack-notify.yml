@@ -1,0 +1,99 @@
+name: PR Slack Notification
+
+# Announces a pull request in Slack once it is actually ready for a human to
+# look at. Repo convention is to open every PR as a draft, so `opened` alone
+# would mostly announce work in progress -- the draft guard below is what makes
+# this useful rather than noisy.
+#
+# Setup:
+#   1. Create a Slack incoming webhook for the target channel.
+#   2. gh secret set SLACK_WEBHOOK_URL --body '<webhook-url>'
+#   3. (optional) Map GitHub logins to Slack member IDs so people get a real
+#      ping instead of plain text:
+#      gh variable set SLACK_USER_MAP --body '{"octocat":"U01ABCDEF"}'
+#
+# Without the secret the job exits quietly, so forks and unconfigured clones
+# do not fail CI.
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, review_requested]
+
+jobs:
+  notify:
+    # Draft PRs are still being written. Skip them, including review requests
+    # added while the PR is a draft.
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    # Reads only the event payload and calls an external webhook.
+    permissions: {}
+    steps:
+      - name: Post to Slack
+        uses: actions/github-script@v7
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_USER_MAP: ${{ vars.SLACK_USER_MAP }}
+        with:
+          script: |
+            const webhook = process.env.SLACK_WEBHOOK_URL;
+            if (!webhook) {
+              core.info('SLACK_WEBHOOK_URL is not set; skipping notification.');
+              return;
+            }
+
+            const pr = context.payload.pull_request;
+            const repo = context.payload.repository;
+
+            let userMap = {};
+            try {
+              userMap = JSON.parse(process.env.SLACK_USER_MAP || '{}');
+            } catch {
+              core.warning('SLACK_USER_MAP is not valid JSON; falling back to GitHub logins.');
+            }
+
+            // A Slack member ID produces a real ping. Anything else degrades to
+            // the GitHub login, which is readable but does not notify.
+            const mention = (login) => {
+              const id = userMap[login];
+              return id ? `<@${id}>` : `\`${login}\``;
+            };
+
+            const reviewers = (pr.requested_reviewers || []).map((r) => mention(r.login));
+            const teams = (pr.requested_teams || []).map((t) => `\`@${t.slug}\``);
+            const allReviewers = [...reviewers, ...teams];
+
+            const labels = (pr.labels || []).map((l) => `\`${l.name}\``).join(' ');
+
+            // WAIaaS tracks issues as files under internal/objectives/issues/,
+            // referenced as "Fixes #504" in the PR body. Surface them as plain
+            // text: they are not GitHub issues, so linking them would 404.
+            const refs = [...new Set(
+              [...(pr.body || '').matchAll(/(?:fixes|closes|refs)\s+#(\d+)/gi)].map((m) => m[1]),
+            )];
+
+            const lines = [
+              `*:loudspeaker: PR - <${pr.html_url}|${pr.title}>*`,
+              '',
+              `> *Repository:* ${repo.full_name}`,
+              `> *Branch:* \`${pr.head.ref}\` → \`${pr.base.ref}\``,
+            ];
+            if (labels) lines.push(`> *Labels:* ${labels}`);
+            if (refs.length) lines.push(`> *Issues:* ${refs.map((n) => `#${n}`).join(', ')}`);
+            if (allReviewers.length) lines.push(`> *Reviewers:* ${allReviewers.join(' ')}`);
+            lines.push(`> *Sender:* ${mention(pr.user.login)}`);
+
+            if (!allReviewers.length) {
+              lines.push('', ':information_source: No reviewer requested yet.');
+            }
+
+            const res = await fetch(webhook, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json; charset=utf-8' },
+              body: JSON.stringify({ text: lines.join('\n') }),
+            });
+
+            if (!res.ok) {
+              // Fail loudly: a silently dropped notification is worse than a red job.
+              const body = await res.text();
+              core.setFailed(`Slack webhook returned ${res.status}: ${body}`);
+            }
