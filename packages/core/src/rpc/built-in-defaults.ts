@@ -68,12 +68,12 @@ export const BUILT_IN_RPC_DEFAULTS: Readonly<Record<string, readonly string[]>> 
   'solana-testnet': [
     'https://api.testnet.solana.com',
   ],
+  // sepolia.drpc.org and rpc.sepolia.org were removed in 2026-08: the former
+  // became a paid-plan-only chain (JSON-RPC error code 35), the latter 404s.
   'ethereum-sepolia': [
     'https://1rpc.io/sepolia',
     'https://0xrpc.io/sep',
     'https://ethereum-sepolia-rpc.publicnode.com',
-    'https://sepolia.drpc.org',
-    'https://rpc.sepolia.org',
   ],
   'arbitrum-sepolia': [
     'https://arbitrum-sepolia.drpc.org',

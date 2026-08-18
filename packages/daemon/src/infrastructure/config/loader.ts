@@ -64,7 +64,7 @@ export const DaemonConfigSchema = z.object({
 
       // EVM Tier 1 (replaces ethereum_mainnet/ethereum_sepolia)
       evm_ethereum_mainnet: z.string().default('https://eth.drpc.org'),
-      evm_ethereum_sepolia: z.string().default('https://sepolia.drpc.org'),
+      evm_ethereum_sepolia: z.string().default('https://1rpc.io/sepolia'),
       evm_polygon_mainnet: z.string().default('https://polygon.drpc.org'),
       evm_polygon_amoy: z.string().default('https://polygon-amoy.drpc.org'),
       evm_arbitrum_mainnet: z.string().default('https://arbitrum.drpc.org'),
