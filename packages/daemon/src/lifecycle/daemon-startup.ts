@@ -26,6 +26,7 @@ import { eq } from 'drizzle-orm';
 import { decrypt } from '../infrastructure/keystore/crypto.js';
 import { DelayQueue } from '../workflow/delay-queue.js';
 import { ApprovalWorkflow } from '../workflow/approval-workflow.js';
+import { OwnerLifecycleService } from '../workflow/owner-state.js';
 import { DatabasePolicyEngine } from '../pipeline/database-policy-engine.js';
 import { JwtSecretManager } from '../infrastructure/jwt/index.js';
 import argon2 from 'argon2';
@@ -1407,6 +1408,14 @@ export async function startDaemon(state: DaemonState, dataDir: string, masterPas
         jwtSecretManager: state.jwtSecretManager ?? undefined,
         delayQueue: state.delayQueue ?? undefined,
         approvalWorkflow: state.approvalWorkflow ?? undefined,
+        // Owner approve/reject routes register only when BOTH approvalWorkflow and
+        // ownerLifecycle are present (transactions.ts:1069). ownerLifecycle was never
+        // constructed here, so POST /v1/transactions/{id}/approve and /reject were never
+        // registered and returned 404 forever -- owner approval had no REST path at all.
+        // sqlite is required by the service, so fall back to undefined when unavailable.
+        ownerLifecycle: state.sqlite
+          ? new OwnerLifecycleService({ db: state._db!, sqlite: state.sqlite })
+          : undefined,
         notificationService: state.notificationService ?? undefined,
         settingsService: state._settingsService ?? undefined,
         priceOracle: state.priceOracle,
