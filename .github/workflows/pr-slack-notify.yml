@@ -15,14 +15,20 @@ name: PR Slack Notification
 # Without the secret the job exits quietly, so forks and unconfigured clones
 # do not fail CI.
 
+# `review_requested` is deliberately not subscribed. GitHub emits it for the
+# first assignment and for every re-request after a review alike, so one PR
+# would re-announce itself on each review round. Reviewers are picked while the
+# PR is still a draft, and `ready_for_review` already carries them in its
+# payload, so nothing is lost by dropping it.
+
 on:
   pull_request:
-    types: [opened, ready_for_review, review_requested]
+    types: [opened, ready_for_review]
 
 jobs:
   notify:
-    # Draft PRs are still being written. Skip them, including review requests
-    # added while the PR is a draft.
+    # Draft PRs are still being written. `ready_for_review` always clears this;
+    # the guard is what stops `opened` from announcing a draft.
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     # Reads only the event payload and calls an external webhook.
