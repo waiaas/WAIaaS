@@ -213,6 +213,7 @@ const POLICIES_TABS = [
 const POLICY_DEFAULTS_KEYS = [
   'security.policy_defaults_delay_seconds',
   'security.policy_defaults_approval_timeout',
+  'security.owner_message_binding',
   'policy.default_deny_tokens',
   'policy.default_deny_contracts',
   'policy.default_deny_spenders',
@@ -334,6 +335,14 @@ function PolicyDefaultsTab() {
               onChange={(v) => handleFieldChange('security.policy_defaults_approval_timeout', v)}
               min={60}
               description="How long to wait for owner approval before timeout"
+            />
+            <FormField
+              label={keyToLabel('owner_message_binding')}
+              name="security.owner_message_binding"
+              type="checkbox"
+              value={getEffectiveBoolValue(settings.value, dirty.value, 'security', 'owner_message_binding')}
+              onChange={(v) => handleFieldChange('security.owner_message_binding', v)}
+              description="Require the signed owner message to name the transaction or wallet it authorises. Turning this off lets one captured signature approve any later request on the same wallet."
             />
           </div>
 
