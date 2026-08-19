@@ -518,7 +518,8 @@ describe('SEC-03-08: LOCKED state blocks APIs same as SUSPENDED', () => {
     });
 
     const token = await signTestToken(jwtManager, sessionId, walletId);
-    const message = `recover:${walletId}:${Date.now()}`;
+    // Recovery still goes through the approve route, so it carries that token.
+    const message = `recover approve:${walletId}:${Date.now()}`;
     const ownerHeaders = createOwnerHeaders(ownerKeyPair, message);
 
     const res = await app.request(`/v1/owner/${walletId}/approve`, {

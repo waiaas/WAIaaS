@@ -119,7 +119,7 @@ export function createSecurityTestApp(opts: {
 
   // Owner auth protected routes (after sessionAuth)
   // Use :id param pattern so ownerAuth can extract walletId from route
-  const ownerMiddleware = createOwnerAuth({ db: opts.db });
+  const ownerMiddleware = createOwnerAuth({ db: opts.db, action: 'approve' });
   app.use('/v1/owner/:id/*', ownerMiddleware);
 
   // Helper: resolve default wallet from session_wallets (earliest created_at)

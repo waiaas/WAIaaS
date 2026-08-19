@@ -30,9 +30,29 @@
 
 ## 수정
 
-**서명 원문이 승인 대상 id를 포함해야 한다.** 미들웨어가 서명 검증에 성공한 뒤, 디코딩된 텍스트에 라우트 param `:id`가 들어 있는지 확인한다. 없으면 `INVALID_SIGNATURE`로 거부한다.
+**서명 원문이 `action:id` 토큰을 포함해야 한다.** 미들웨어가 서명 검증에 성공한 뒤, 디코딩된 텍스트에 라우트 param `:id`가 들어 있는지 확인한다. 없으면 `INVALID_SIGNATURE`로 거부한다.
 
-`/v1/transactions/:id/approve`·`/reject`에서는 트랜잭션 id, `/v1/wallets/:id/owner/verify`에서는 지갑 id가 대상이다. 이로써 각 서명이 한 건 전용이 된다.
+| 엔드포인트 | 요구 토큰 |
+| --- | --- |
+| `POST /v1/transactions/{id}/approve` | `approve:{id}` |
+| `POST /v1/transactions/{id}/reject` | `reject:{id}` |
+| `POST /v1/wallets/{id}/owner/verify` | `verify:{id}` |
+
+### 왜 id만이 아니라 `action:id`인가 (2026-08-19 감사 반영)
+
+처음 구현은 `signedText.includes(paramId)`로 id만 확인했다. 독립 감사가 **`/approve`와 `/reject`의 `:id`가 같은 txId**라는 점을 짚었다. 즉 오너가 **거부하려고** 서명한 `Reject {txid}`가 `/approve`에서 그대로 200이 됐다(감사 재현: `H2 approve-with-reject-signature status: 200`). 대상 불특정은 닫았지만 **행위 불특정**이 남아 있었고, 문서 예시가 이미 `Approve <id>` / `Reject <id>`로 갈라져 있어 오히려 위험했다.
+
+토큰 방식은 부수 효과로 **언어 독립성**도 준다. 산문에 영어 동사가 있어야 한다면 한국어 승인 문구(#504가 가능하게 만든 것)와 충돌한다. 토큰은 문구 어디에나 놓을 수 있고 매칭은 대소문자를 무시한다.
+
+`action`은 미들웨어 마운트 시점에 주입한다(`createOwnerAuth({ action })`). 경로 말단 세그먼트 파싱보다 명시적이고, 라우트 구조가 바뀌어도 조용히 깨지지 않으며, 타입이 필수라 새 마운트에서 빠뜨릴 수 없다.
+
+### SDK가 함께 깨졌다 (2026-08-19 감사 반영)
+
+`packages/sdk/src/owner-client.ts`가 **nonce만 서명해** `X-Owner-Message`에 넣고 있었다. id도 action도 없으므로 바인딩 도입으로 `approve()`·`reject()`가 **100% 401**이 된다. SDK 테스트는 `fetch`를 mock해 데몬 검증을 거치지 않으므로 이 회귀를 잡지 못했다(감사 확인: 13/13 green).
+
+`ownerAuthHeaders(action, boundId)`로 바꿔 `{action}:{id} (nonce: {nonce})`를 서명한다. nonce는 유지했다 — 같은 id에 대한 두 승인이 바이트 단위로 동일해지지 않게 한다. SDK 테스트에도 토큰 포함 단정을 추가해, mock 기반 테스트가 같은 회귀를 다시 놓치지 않게 했다.
+
+`activateKillSwitch()`는 `:id`가 없는 라우트라 바인딩 대상이 없다. 그 경로는 별개의 pre-existing 결함으로 현재 ownerAuth를 통과하지 못하므로(`c.req.param('id')`가 undefined → `WALLET_NOT_FOUND`) 이번 범위에 넣지 않고 주석으로 남겼다.
 
 ### 왜 nonce가 아니라 id 바인딩인가
 
@@ -51,5 +71,16 @@ nonce를 서버가 소비하도록 만드는 것은 추가 방어로 여전히 �
 1. 대상 id를 담지 않은 메시지의 서명은 거부된다
 2. **다른 id에 바인딩된 서명을 이 경로에 쓰면 거부된다** (이 이슈가 막는 재사용)
 3. 자기가 승인하는 id를 담은 서명은 통과한다
+
+`owner-auth.test.ts`에 action 바인딩 4건을 추가했다.
+
+4. **거부용 서명을 승인 마운트에 쓰면 거부된다** (감사 결함 2)
+5. 한국어 프롬프트 안에 토큰이 섞여 있어도 통과한다
+6. 토큰 매칭은 대소문자를 무시한다
+7. action 없이 id만 있는 메시지는 거부된다
+
+`owner-client.test.ts`에 SDK 바인딩 3건을 추가했다(토큰 포함, reject/approve 구분, 서명한 바이트와 전송 바이트 일치).
+
+되돌림 검증: 토큰을 id만으로 되돌리면 4·7이 실패하고, SDK를 nonce만 서명으로 되돌리면 SDK 3건이 실패한다.
 
 기존 `owner-auth.test.ts`·`owner-auth-siwe.test.ts`·`evm-lifecycle-e2e.test.ts`의 통과 경로도 전부 id를 담도록 갱신했다. 실사용에서도 그렇게 서명해야 한다.

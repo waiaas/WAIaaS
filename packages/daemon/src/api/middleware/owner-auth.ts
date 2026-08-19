@@ -15,6 +15,10 @@
  *   - X-Owner-Message-Encoding: base64 | utf8 -- Solana only. The EVM path is
  *       always base64 (SIWE messages are multi-line) and does not consult it.
  *
+ * The signed message must contain an `action:id` token (e.g. `approve:<txId>`)
+ * so a signature cannot be redirected at a different action or a different id.
+ * Disable with security.owner_message_binding=false.
+ *
  * v1.2: Solana Ed25519.
  * v1.4.1: EVM SIWE (EIP-4361 + EIP-191) via verifySIWE.
  *
@@ -58,8 +62,16 @@ declare module 'hono' {
   }
 }
 
+/**
+ * What the signature authorises. Part of the token the owner signs, so a
+ * signature for one action cannot be redirected at another.
+ */
+export type OwnerAuthAction = 'approve' | 'reject' | 'verify';
+
 export interface OwnerAuthDeps {
   db: BetterSQLite3Database<typeof schema>;
+  /** Required: the action this mount authorises. */
+  action: OwnerAuthAction;
   /**
    * Reads security.owner_message_binding. Optional for backward compatibility:
    * when absent the binding check stays on, since the safe default is to require it.
@@ -246,15 +258,22 @@ export function createOwnerAuth(deps: OwnerAuthDeps) {
     // agreed to this". Nothing else ties the two together: the approve handler
     // forwards the signature without re-checking it, and GET /v1/nonce is
     // stateless, so one captured header triple would otherwise authorise every
-    // later PENDING_APPROVAL on this wallet. Requiring the signed text to name
-    // the id being authorised makes each signature single-purpose.
+    // later PENDING_APPROVAL on this wallet.
+    //
+    // The token is `action:id` rather than a loose mention of the id, for two
+    // reasons. /approve and /reject share the same :id, so matching the id alone
+    // lets a signature the owner made to *refuse* a transaction be replayed to
+    // approve it. And a fixed token keeps the check independent of the prose
+    // around it -- the prompt a person reads can be in any language.
+    const boundToken = `${deps.action}:${paramId}`;
     if (deps.settingsService?.get('security.owner_message_binding') !== 'false'
-      && !signedText.includes(paramId)) {
+      && !signedText.toLowerCase().includes(boundToken.toLowerCase())) {
       throw new WAIaaSError('INVALID_SIGNATURE', {
         message:
-          `Signed message must reference the id being authorised ('${paramId}'). ` +
-          'Include it in the text the owner signs, or set security.owner_message_binding=false ' +
-          'to accept unbound signatures.',
+          `Signed message must contain the token '${boundToken}'. It binds the signature to ` +
+          'this action and this id, so it cannot be replayed against another. Add the token to ' +
+          'the text the owner signs, or set security.owner_message_binding=false to accept ' +
+          'unbound signatures.',
       });
     }
 

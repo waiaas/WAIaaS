@@ -314,7 +314,7 @@ describe('SEC-01-OA Owner Authentication Attacks', () => {
       const token = await signTestToken(jwtManager, sessionId, walletId);
 
       // Captured from an approval of a different id, then aimed at this one.
-      const headers = createOwnerHeaders(ownerKp, 'approve 00000000-0000-7000-8000-000000000999');
+      const headers = createOwnerHeaders(ownerKp, 'approve:00000000-0000-7000-8000-000000000999');
 
       const res = await app.request(`/v1/owner/${walletId}/approve`, {
         method: 'POST',
@@ -332,7 +332,7 @@ describe('SEC-01-OA Owner Authentication Attacks', () => {
       });
       const token = await signTestToken(jwtManager, sessionId, walletId);
 
-      const headers = createOwnerHeaders(ownerKp, `approve ${walletId}`);
+      const headers = createOwnerHeaders(ownerKp, `approve:${walletId}`);
 
       const res = await app.request(`/v1/owner/${walletId}/approve`, {
         method: 'POST',

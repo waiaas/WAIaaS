@@ -561,7 +561,7 @@ describe('EVM Wallet Full Lifecycle E2E', () => {
     expect(queuedRow.tier).toBe('APPROVAL');
 
     // Build SIWE message for approval
-    const siweMessage = buildSIWEMessage({ address: ownerAddress, statement: `Approve ${txId}` });
+    const siweMessage = buildSIWEMessage({ address: ownerAddress, statement: `approve:${txId}` });
     const siweMessageBase64 = Buffer.from(siweMessage, 'utf8').toString('base64');
 
     // Sign the SIWE message with viem account (EIP-191 personal_sign)

@@ -431,10 +431,11 @@ export function createApp(deps: CreateAppDeps = {}): OpenAPIHono {
 
   // ownerAuth for approve and reject routes (requires DB for agent lookup)
   if (deps.db) {
-    const ownerAuth = createOwnerAuth({ db: deps.db, settingsService: deps.settingsService });
-    app.use('/v1/transactions/:id/approve', ownerAuth);
-    app.use('/v1/transactions/:id/reject', ownerAuth);
-    app.use('/v1/wallets/:id/owner/verify', ownerAuth);
+    const ownerAuthFor = (action: 'approve' | 'reject' | 'verify') =>
+      createOwnerAuth({ db: deps.db!, settingsService: deps.settingsService, action });
+    app.use('/v1/transactions/:id/approve', ownerAuthFor('approve'));
+    app.use('/v1/transactions/:id/reject', ownerAuthFor('reject'));
+    app.use('/v1/wallets/:id/owner/verify', ownerAuthFor('verify'));
   }
 
   // masterAuth for admin routes (except GET /admin/kill-switch which is public)
@@ -518,7 +519,7 @@ export function createApp(deps: CreateAppDeps = {}): OpenAPIHono {
 
   // ownerAuth for POST /v1/owner/kill-switch
   if (deps.db) {
-    const ownerAuthForKillSwitch = createOwnerAuth({ db: deps.db, settingsService: deps.settingsService });
+    const ownerAuthForKillSwitch = createOwnerAuth({ db: deps.db, settingsService: deps.settingsService, action: 'verify' });
     app.use('/v1/owner/kill-switch', ownerAuthForKillSwitch);
   }
 

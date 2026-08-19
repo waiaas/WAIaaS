@@ -53,7 +53,7 @@ EVM 경로는 이 헤더를 참조하지 않는다. SIWE 메시지는 항상 여
 
 - `packages/daemon/src/api/middleware/owner-auth.ts`
 - `skills/transactions.skill.md` — approve/reject의 owner 헤더 문서화. 기존 문서가 `X-Owner-Signature` 하나만 적고 `X-Owner-Message`·`X-Owner-Address`를 누락하고 있어 함께 정정했다.
-- SDK 변경 없음 (`packages/sdk`·`packages/wallet-sdk`는 이 헤더를 쓰지 않는다).
+- **정정(2026-08-19)**: 위에 "SDK 변경 없음"이라고 적었던 것은 **틀렸다.** `packages/sdk/src/owner-client.ts:66`이 `X-Owner-Message`를 보낸다. grep 결과를 20줄로 자른 채 판단한 탓이고, 그 잘못된 결론이 PR 본문에도 들어갔다. #506의 바인딩 도입으로 SDK가 100% 401이 되는 것을 독립 감사가 잡아냈다. SDK 수정은 #506에 포함했다.
 
 ## 리뷰 반영 (2026-08-19, PR #416)
 

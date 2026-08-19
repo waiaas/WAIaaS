@@ -54,16 +54,35 @@ export class WAIaaSOwnerClient {
    *
    * Headers sent:
    * - X-Owner-Address: owner wallet address (base58 for Solana)
-   * - X-Owner-Message: the nonce string (used as signed message)
+   * - X-Owner-Message: `<action>:<id> (nonce: <nonce>)`
    * - X-Owner-Signature: base64-encoded Ed25519 detached signature
+   *
+   * The message carries an `action:id` token because the daemon refuses a
+   * signature that does not name what it authorises: without it, one captured
+   * signature would approve every later request on the same wallet, and a
+   * signature made to reject a transaction could be replayed to approve it.
+   * The nonce is kept so two approvals of the same id are not byte-identical.
+   *
+   * @param action What is being authorised
+   * @param boundId Transaction id, or wallet id for owner verification
    */
-  private async ownerAuthHeaders(): Promise<Record<string, string>> {
+  private async ownerAuthHeaders(
+    action: 'approve' | 'reject' | 'verify',
+    boundId?: string,
+  ): Promise<Record<string, string>> {
     const nonceResp = await this.http.get<NonceResponse>('/v1/nonce');
-    const message = new TextEncoder().encode(nonceResp.nonce);
+    // boundId is omitted only for /v1/admin/kill-switch, whose route has no :id
+    // for the daemon to bind against. That endpoint does not currently pass
+    // ownerAuth for an unrelated, pre-existing reason, so there is nothing to
+    // bind to here yet.
+    const text = boundId
+      ? `${action}:${boundId} (nonce: ${nonceResp.nonce})`
+      : nonceResp.nonce;
+    const message = new TextEncoder().encode(text);
     const signature = await this.signMessage(message);
     return {
       'X-Owner-Address': this.ownerAddress,
-      'X-Owner-Message': nonceResp.nonce,
+      'X-Owner-Message': text,
       'X-Owner-Signature': Buffer.from(signature).toString('base64'),
     };
   }
@@ -90,7 +109,7 @@ export class WAIaaSOwnerClient {
    */
   async approve(txId: string): Promise<ApproveResponse> {
     return withRetry(async () => {
-      const headers = await this.ownerAuthHeaders();
+      const headers = await this.ownerAuthHeaders('approve', txId);
       return this.http.post<ApproveResponse>(
         `/v1/transactions/${txId}/approve`,
         {},
@@ -105,7 +124,7 @@ export class WAIaaSOwnerClient {
    */
   async reject(txId: string): Promise<RejectResponse> {
     return withRetry(async () => {
-      const headers = await this.ownerAuthHeaders();
+      const headers = await this.ownerAuthHeaders('reject', txId);
       return this.http.post<RejectResponse>(
         `/v1/transactions/${txId}/reject`,
         {},
@@ -120,7 +139,7 @@ export class WAIaaSOwnerClient {
    */
   async activateKillSwitch(): Promise<KillSwitchActivateResponse> {
     return withRetry(async () => {
-      const headers = await this.ownerAuthHeaders();
+      const headers = await this.ownerAuthHeaders('verify');
       return this.http.post<KillSwitchActivateResponse>(
         '/v1/admin/kill-switch',
         {},

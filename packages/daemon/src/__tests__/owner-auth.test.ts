@@ -114,7 +114,7 @@ const nowSeconds = () => Math.floor(Date.now() / 1000);
 function createTestApp(database: ReturnType<typeof createDatabase>['db']) {
   const testApp = new Hono();
   testApp.onError(errorHandler);
-  testApp.use('/protected/:id/action', createOwnerAuth({ db: database }));
+  testApp.use('/protected/:id/action', createOwnerAuth({ db: database, action: 'approve' }));
   testApp.post('/protected/:id/action', (c) => {
     const ownerAddress = c.get('ownerAddress' as never) as string | undefined;
     return c.json({ ok: true, ownerAddress });
@@ -262,7 +262,7 @@ describe('ownerAuth middleware', () => {
   it('passes through when valid Ed25519 signature matches owner address', async () => {
     seedWallet({ ownerAddress: ownerKeypair.address });
 
-    const message = `approve ${TEST_WALLET_ID}`;
+    const message = `approve:${TEST_WALLET_ID}`;
     const sig = signMessage(message, ownerKeypair.secretKey);
 
     const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
@@ -293,7 +293,7 @@ describe('ownerAuth middleware', () => {
     /** A prompt a Korean-speaking owner would actually read, with a line break. */
     // Includes the id being authorised, which ownerAuth now requires -- and which
     // a real prompt should show the owner anyway.
-    const HUMAN_PROMPT = `A2A 하우스 구매 승인\n금액: 5 USDC\n수신: 판매자 지갑\n승인 대상: ${TEST_WALLET_ID}`;
+    const HUMAN_PROMPT = `A2A 하우스 구매 승인\n금액: 5 USDC\n수신: 판매자 지갑\napprove:${TEST_WALLET_ID}`;
 
     it('verifies a base64 message carrying Korean text and newlines', async () => {
       seedWallet({ ownerAddress: ownerKeypair.address });
@@ -318,7 +318,7 @@ describe('ownerAuth middleware', () => {
     it('still accepts a raw ASCII message when the header is omitted', async () => {
       seedWallet({ ownerAddress: ownerKeypair.address });
 
-      const message = `approve ${TEST_WALLET_ID}`;
+      const message = `approve:${TEST_WALLET_ID}`;
       const sig = signMessage(message, ownerKeypair.secretKey);
 
       const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
@@ -336,7 +336,7 @@ describe('ownerAuth middleware', () => {
     it("treats an explicit 'utf8' encoding as the raw path", async () => {
       seedWallet({ ownerAddress: ownerKeypair.address });
 
-      const message = `approve ${TEST_WALLET_ID}`;
+      const message = `approve:${TEST_WALLET_ID}`;
       const sig = signMessage(message, ownerKeypair.secretKey);
 
       const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
@@ -355,7 +355,7 @@ describe('ownerAuth middleware', () => {
     it('rejects an unknown encoding instead of silently falling back', async () => {
       seedWallet({ ownerAddress: ownerKeypair.address });
 
-      const message = `approve ${TEST_WALLET_ID}`;
+      const message = `approve:${TEST_WALLET_ID}`;
       const sig = signMessage(message, ownerKeypair.secretKey);
 
       const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
@@ -412,7 +412,7 @@ describe('ownerAuth middleware', () => {
     it('accepts valid base64 that arrives unpadded', async () => {
       seedWallet({ ownerAddress: ownerKeypair.address });
 
-      const message = `hi ${TEST_WALLET_ID}`;
+      const message = `hi approve:${TEST_WALLET_ID}`;
       const sig = signMessage(message, ownerKeypair.secretKey);
 
       const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
@@ -434,7 +434,7 @@ describe('ownerAuth middleware', () => {
     ])('treats a present-but-empty encoding header as absent: %s', async (_label, value) => {
       seedWallet({ ownerAddress: ownerKeypair.address });
 
-      const message = `approve ${TEST_WALLET_ID}`;
+      const message = `approve:${TEST_WALLET_ID}`;
       const sig = signMessage(message, ownerKeypair.secretKey);
 
       const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
@@ -458,7 +458,7 @@ describe('ownerAuth middleware', () => {
 
       const isBase64 = encoding.toLowerCase() === 'base64';
       const sig = signMessage(HUMAN_PROMPT, ownerKeypair.secretKey);
-      const rawText = `plain ${TEST_WALLET_ID}`;
+      const rawText = `plain approve:${TEST_WALLET_ID}`;
       const rawSig = signMessage(rawText, ownerKeypair.secretKey);
 
       const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
@@ -487,6 +487,94 @@ describe('ownerAuth middleware', () => {
           'X-Owner-Signature': sig,
           'X-Owner-Message': Buffer.from(HUMAN_PROMPT, 'utf8').toString('base64'),
           'X-Owner-Message-Encoding': 'base64',
+          'X-Owner-Address': ownerKeypair.address,
+        },
+      });
+
+      expect(res.status).toBe(401);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Action binding
+  //
+  // /approve and /reject carry the same :id, so matching the id alone lets a
+  // signature the owner made to refuse a transaction be replayed to approve it.
+  // The token is action:id for that reason.
+  // -------------------------------------------------------------------------
+
+  describe('action binding', () => {
+    it('refuses a reject signature at an approve mount', async () => {
+      seedWallet({ ownerAddress: ownerKeypair.address });
+
+      // The owner really did sign this -- to refuse the very same transaction.
+      const message = `reject:${TEST_WALLET_ID}`;
+      const sig = signMessage(message, ownerKeypair.secretKey);
+
+      const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
+        method: 'POST',
+        headers: {
+          'X-Owner-Signature': sig,
+          'X-Owner-Message': message,
+          'X-Owner-Address': ownerKeypair.address,
+        },
+      });
+
+      expect(res.status).toBe(401);
+      const body = await json(res);
+      expect(body.code).toBe('INVALID_SIGNATURE');
+      expect(body.message).toContain(`approve:${TEST_WALLET_ID}`);
+    });
+
+    it('accepts the token anywhere in a human-readable prompt', async () => {
+      seedWallet({ ownerAddress: ownerKeypair.address });
+
+      // What the owner actually reads is Korean; the token rides along with it.
+      const message = `구매를 승인합니다\n금액: 5 USDC\napprove:${TEST_WALLET_ID}`;
+      const sig = signMessage(message, ownerKeypair.secretKey);
+
+      const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
+        method: 'POST',
+        headers: {
+          'X-Owner-Signature': sig,
+          'X-Owner-Message': Buffer.from(message, 'utf8').toString('base64'),
+          'X-Owner-Message-Encoding': 'base64',
+          'X-Owner-Address': ownerKeypair.address,
+        },
+      });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('matches the token case-insensitively', async () => {
+      seedWallet({ ownerAddress: ownerKeypair.address });
+
+      const message = `APPROVE:${TEST_WALLET_ID.toUpperCase()}`;
+      const sig = signMessage(message, ownerKeypair.secretKey);
+
+      const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
+        method: 'POST',
+        headers: {
+          'X-Owner-Signature': sig,
+          'X-Owner-Message': message,
+          'X-Owner-Address': ownerKeypair.address,
+        },
+      });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('refuses a bare id with no action', async () => {
+      seedWallet({ ownerAddress: ownerKeypair.address });
+
+      const message = `Approve ${TEST_WALLET_ID}`;
+      const sig = signMessage(message, ownerKeypair.secretKey);
+
+      const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
+        method: 'POST',
+        headers: {
+          'X-Owner-Signature': sig,
+          'X-Owner-Message': message,
           'X-Owner-Address': ownerKeypair.address,
         },
       });

@@ -76,10 +76,10 @@ curl -s http://localhost:3100/v1/transactions \
 ```bash
 curl -s -X POST http://localhost:3100/v1/transactions/<TX_ID_1>/approve \
   -H 'X-Owner-Signature: <siwe-signature>' \
-  -H 'X-Owner-Message: Approve <TX_ID_1>' \
+  -H 'X-Owner-Message: approve:<TX_ID_1>' \
   -H 'X-Owner-Address: <owner-address>'
 ```
-> 세 헤더가 모두 필요하다. 서명 원문에는 승인 대상 id가 들어가야 한다 — 한 서명을 다른 트랜잭션 승인에 재사용할 수 없도록 막는다.
+> 세 헤더가 모두 필요하다. 서명 원문에는 `approve:<TX_ID>` 형태의 토큰이 들어가야 한다. 다른 트랜잭션으로 재사용하는 것과, 거부용 서명을 승인에 돌려쓰는 것을 함께 막는다.
 **Expected**: 200 OK, 트랜잭션 상태가 EXECUTING으로 전환된다
 **Check**: `status`가 `EXECUTING`, `approvedAt` 타임스탬프가 존재
 
@@ -113,7 +113,7 @@ curl -s -X POST http://localhost:3100/v1/transactions/send \
 # Owner가 거부
 curl -s -X POST http://localhost:3100/v1/transactions/<TX_ID_2>/reject \
   -H 'X-Owner-Signature: <siwe-signature>' \
-  -H 'X-Owner-Message: Reject <TX_ID_2>' \
+  -H 'X-Owner-Message: reject:<TX_ID_2>' \
   -H 'X-Owner-Address: <owner-address>'
 ```
 **Expected**: 200 OK, 트랜잭션 상태가 CANCELLED로 전환된다
