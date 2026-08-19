@@ -293,6 +293,8 @@ export const pendingApprovals = sqliteTable(
     approvalChannel: text('approval_channel').default('rest_api'),
     approvalType: text('approval_type').notNull().default('SIWE'),
     typedDataJson: text('typed_data_json'),
+    /** The exact text the owner signed. NULL for approvals recorded before v63. */
+    ownerMessage: text('owner_message'),
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   },
   (table) => [

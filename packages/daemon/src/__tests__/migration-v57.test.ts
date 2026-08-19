@@ -53,7 +53,7 @@ describe('DB v57 Migration: composite index idx_transactions_action_kind_bridge_
   });
 
   it('LATEST_SCHEMA_VERSION is 59', () => {
-    expect(LATEST_SCHEMA_VERSION).toBe(62);
+    expect(LATEST_SCHEMA_VERSION).toBe(63);
   });
 
   it('v57 migration creates composite index', () => {
@@ -63,7 +63,7 @@ describe('DB v57 Migration: composite index idx_transactions_action_kind_bridge_
 
     runMigrations(sqlite);
 
-    expect(getMaxVersion(sqlite)).toBe(62);
+    expect(getMaxVersion(sqlite)).toBe(63);
     expect(indexExists(sqlite, 'idx_transactions_action_kind_bridge_status')).toBe(true);
   });
 
@@ -84,7 +84,7 @@ describe('DB v57 Migration: composite index idx_transactions_action_kind_bridge_
     sqlite.pragma('foreign_keys = ON');
     pushSchema(sqlite);
 
-    expect(getMaxVersion(sqlite)).toBe(62);
+    expect(getMaxVersion(sqlite)).toBe(63);
     expect(indexExists(sqlite, 'idx_transactions_action_kind_bridge_status')).toBe(true);
   });
 });

@@ -410,6 +410,6 @@ describe('migration v62', () => {
 
   it('LATEST_SCHEMA_VERSION is 62', async () => {
     const { LATEST_SCHEMA_VERSION } = await import('../infrastructure/database/schema-ddl.js');
-    expect(LATEST_SCHEMA_VERSION).toBe(62);
+    expect(LATEST_SCHEMA_VERSION).toBe(63);
   });
 });

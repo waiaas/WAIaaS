@@ -431,7 +431,7 @@ export function createApp(deps: CreateAppDeps = {}): OpenAPIHono {
 
   // ownerAuth for approve and reject routes (requires DB for agent lookup)
   if (deps.db) {
-    const ownerAuth = createOwnerAuth({ db: deps.db });
+    const ownerAuth = createOwnerAuth({ db: deps.db, settingsService: deps.settingsService });
     app.use('/v1/transactions/:id/approve', ownerAuth);
     app.use('/v1/transactions/:id/reject', ownerAuth);
     app.use('/v1/wallets/:id/owner/verify', ownerAuth);
@@ -518,7 +518,7 @@ export function createApp(deps: CreateAppDeps = {}): OpenAPIHono {
 
   // ownerAuth for POST /v1/owner/kill-switch
   if (deps.db) {
-    const ownerAuthForKillSwitch = createOwnerAuth({ db: deps.db });
+    const ownerAuthForKillSwitch = createOwnerAuth({ db: deps.db, settingsService: deps.settingsService });
     app.use('/v1/owner/kill-switch', ownerAuthForKillSwitch);
   }
 

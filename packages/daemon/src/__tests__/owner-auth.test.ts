@@ -262,7 +262,7 @@ describe('ownerAuth middleware', () => {
   it('passes through when valid Ed25519 signature matches owner address', async () => {
     seedWallet({ ownerAddress: ownerKeypair.address });
 
-    const message = 'approve-transaction-1234';
+    const message = `approve ${TEST_WALLET_ID}`;
     const sig = signMessage(message, ownerKeypair.secretKey);
 
     const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
@@ -291,7 +291,9 @@ describe('ownerAuth middleware', () => {
 
   describe('X-Owner-Message-Encoding', () => {
     /** A prompt a Korean-speaking owner would actually read, with a line break. */
-    const HUMAN_PROMPT = 'A2A 하우스 구매 승인\n금액: 5 USDC\n수신: 판매자 지갑';
+    // Includes the id being authorised, which ownerAuth now requires -- and which
+    // a real prompt should show the owner anyway.
+    const HUMAN_PROMPT = `A2A 하우스 구매 승인\n금액: 5 USDC\n수신: 판매자 지갑\n승인 대상: ${TEST_WALLET_ID}`;
 
     it('verifies a base64 message carrying Korean text and newlines', async () => {
       seedWallet({ ownerAddress: ownerKeypair.address });
@@ -316,7 +318,7 @@ describe('ownerAuth middleware', () => {
     it('still accepts a raw ASCII message when the header is omitted', async () => {
       seedWallet({ ownerAddress: ownerKeypair.address });
 
-      const message = 'approve-transaction-1234';
+      const message = `approve ${TEST_WALLET_ID}`;
       const sig = signMessage(message, ownerKeypair.secretKey);
 
       const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
@@ -334,7 +336,7 @@ describe('ownerAuth middleware', () => {
     it("treats an explicit 'utf8' encoding as the raw path", async () => {
       seedWallet({ ownerAddress: ownerKeypair.address });
 
-      const message = 'approve-transaction-1234';
+      const message = `approve ${TEST_WALLET_ID}`;
       const sig = signMessage(message, ownerKeypair.secretKey);
 
       const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
@@ -353,7 +355,7 @@ describe('ownerAuth middleware', () => {
     it('rejects an unknown encoding instead of silently falling back', async () => {
       seedWallet({ ownerAddress: ownerKeypair.address });
 
-      const message = 'approve-transaction-1234';
+      const message = `approve ${TEST_WALLET_ID}`;
       const sig = signMessage(message, ownerKeypair.secretKey);
 
       const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
@@ -372,7 +374,19 @@ describe('ownerAuth middleware', () => {
       expect(body.message).toContain('X-Owner-Message-Encoding');
     });
 
-    it('rejects a base64 message that decodes to nothing', async () => {
+    /**
+     * Buffer.from(x, 'base64') drops out-of-alphabet characters instead of
+     * failing, so these all decode to *something* and would otherwise reach the
+     * signature check and return an unreadable mismatch. Only '!!!!' has no
+     * base64 character at all, which is why a length check alone missed the rest.
+     */
+    it.each([
+      ['raw ASCII prompt', 'Approve purchase 5 USDC'],
+      ['a word', 'hello'],
+      ['base64url alphabet', 'approve-transaction-1234'],
+      ['embedded whitespace', 'aGVs bG8='],
+      ['no base64 characters at all', '!!!!'],
+    ])('rejects a message declared base64 that is not: %s', async (_label, value) => {
       seedWallet({ ownerAddress: ownerKeypair.address });
 
       const sig = signMessage(HUMAN_PROMPT, ownerKeypair.secretKey);
@@ -381,7 +395,7 @@ describe('ownerAuth middleware', () => {
         method: 'POST',
         headers: {
           'X-Owner-Signature': sig,
-          'X-Owner-Message': '!!!!',
+          'X-Owner-Message': value,
           'X-Owner-Message-Encoding': 'base64',
           'X-Owner-Address': ownerKeypair.address,
         },
@@ -390,6 +404,76 @@ describe('ownerAuth middleware', () => {
       expect(res.status).toBe(401);
       const body = await json(res);
       expect(body.code).toBe('INVALID_SIGNATURE');
+      // Pins the encoding diagnosis. Without it the assertions above pass on a
+      // plain signature mismatch, so the guard could be deleted unnoticed.
+      expect(body.message).toContain('not valid standard base64');
+    });
+
+    it('accepts valid base64 that arrives unpadded', async () => {
+      seedWallet({ ownerAddress: ownerKeypair.address });
+
+      const message = `hi ${TEST_WALLET_ID}`;
+      const sig = signMessage(message, ownerKeypair.secretKey);
+
+      const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
+        method: 'POST',
+        headers: {
+          'X-Owner-Signature': sig,
+          'X-Owner-Message': Buffer.from(message, 'utf8').toString('base64').replace(/=+$/, ''),
+          'X-Owner-Message-Encoding': 'base64',
+          'X-Owner-Address': ownerKeypair.address,
+        },
+      });
+
+      expect(res.status).toBe(200);
+    });
+
+    it.each([
+      ['blank value', ''],
+      ['whitespace only', '  '],
+    ])('treats a present-but-empty encoding header as absent: %s', async (_label, value) => {
+      seedWallet({ ownerAddress: ownerKeypair.address });
+
+      const message = `approve ${TEST_WALLET_ID}`;
+      const sig = signMessage(message, ownerKeypair.secretKey);
+
+      const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
+        method: 'POST',
+        headers: {
+          'X-Owner-Signature': sig,
+          'X-Owner-Message': message,
+          'X-Owner-Message-Encoding': value,
+          'X-Owner-Address': ownerKeypair.address,
+        },
+      });
+
+      expect(res.status).toBe(200);
+    });
+
+    it.each([
+      ['uppercase', 'Base64'],
+      ['IANA spelling of utf8', 'UTF-8'],
+    ])('normalises the encoding value: %s', async (_label, encoding) => {
+      seedWallet({ ownerAddress: ownerKeypair.address });
+
+      const isBase64 = encoding.toLowerCase() === 'base64';
+      const sig = signMessage(HUMAN_PROMPT, ownerKeypair.secretKey);
+      const rawText = `plain ${TEST_WALLET_ID}`;
+      const rawSig = signMessage(rawText, ownerKeypair.secretKey);
+
+      const res = await app.request(`/protected/${TEST_WALLET_ID}/action`, {
+        method: 'POST',
+        headers: {
+          'X-Owner-Signature': isBase64 ? sig : rawSig,
+          'X-Owner-Message': isBase64
+            ? Buffer.from(HUMAN_PROMPT, 'utf8').toString('base64')
+            : rawText,
+          'X-Owner-Message-Encoding': encoding,
+          'X-Owner-Address': ownerKeypair.address,
+        },
+      });
+
+      expect(res.status).toBe(200);
     });
 
     it('rejects a base64 message whose signature was made over different bytes', async () => {
