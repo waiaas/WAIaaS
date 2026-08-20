@@ -103,7 +103,7 @@ const nowSeconds = () => Math.floor(Date.now() / 1000);
 function createTestApp(database: ReturnType<typeof createDatabase>['db']) {
   const testApp = new Hono();
   testApp.onError(errorHandler);
-  testApp.use('/protected/:id/action', createOwnerAuth({ db: database }));
+  testApp.use('/protected/:id/action', createOwnerAuth({ db: database, action: 'approve' }));
   testApp.post('/protected/:id/action', (c) => {
     const ownerAddress = c.get('ownerAddress' as never) as string | undefined;
     return c.json({ ok: true, ownerAddress });
@@ -138,7 +138,7 @@ function seedWallet(opts?: { ownerAddress?: string | null; chain?: string; netwo
  */
 function buildSiweMessage(
   address: `0x${string}`,
-  opts?: { expirationTime?: Date },
+  opts?: { expirationTime?: Date; boundId?: string },
 ): string {
   return createSiweMessage({
     address,
@@ -147,6 +147,9 @@ function buildSiweMessage(
     nonce: 'testnonce123',
     uri: 'http://localhost:3000',
     version: '1',
+    // ownerAuth requires the signed text to name the id being authorised, so a
+    // SIWE message carries it in the statement.
+    statement: `approve:${opts?.boundId ?? TEST_WALLET_ID}`,
     expirationTime: opts?.expirationTime ?? new Date(Date.now() + 300_000),
   });
 }

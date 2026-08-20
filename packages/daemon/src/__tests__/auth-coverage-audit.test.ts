@@ -301,7 +301,7 @@ describe('ownerAuth edge cases (coverage audit)', () => {
   function createTestApp(database: ReturnType<typeof createDatabase>['db']) {
     const testApp = new Hono();
     testApp.onError(errorHandler);
-    testApp.use('/protected/:id/action', createOwnerAuth({ db: database }));
+    testApp.use('/protected/:id/action', createOwnerAuth({ db: database, action: 'approve' }));
     testApp.post('/protected/:id/action', (c) => {
       const ownerAddress = c.get('ownerAddress' as never) as string | undefined;
       return c.json({ ok: true, ownerAddress });

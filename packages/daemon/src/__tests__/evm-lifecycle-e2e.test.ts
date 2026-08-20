@@ -240,6 +240,8 @@ function buildSIWEMessage(params: {
   nonce?: string;
   issuedAt?: string;
   expirationTime?: string;
+  /** ownerAuth requires the signed text to name the id being authorised. */
+  statement?: string;
 }): string {
   const domain = 'localhost';
   const uri = 'http://localhost:3100';
@@ -254,7 +256,7 @@ function buildSIWEMessage(params: {
     `${domain} wants you to sign in with your Ethereum account:`,
     params.address,
     '',
-    'Sign in to WAIaaS',
+    params.statement ?? 'Sign in to WAIaaS',
     '',
     `URI: ${uri}`,
     `Version: ${version}`,
@@ -559,7 +561,7 @@ describe('EVM Wallet Full Lifecycle E2E', () => {
     expect(queuedRow.tier).toBe('APPROVAL');
 
     // Build SIWE message for approval
-    const siweMessage = buildSIWEMessage({ address: ownerAddress });
+    const siweMessage = buildSIWEMessage({ address: ownerAddress, statement: `approve:${txId}` });
     const siweMessageBase64 = Buffer.from(siweMessage, 'utf8').toString('base64');
 
     // Sign the SIWE message with viem account (EIP-191 personal_sign)

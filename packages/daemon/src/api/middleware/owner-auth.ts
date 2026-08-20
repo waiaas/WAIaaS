@@ -7,8 +7,17 @@
  *
  * Headers required:
  *   - X-Owner-Signature: signature (base64 Ed25519 for Solana, 0x hex for EVM)
- *   - X-Owner-Message: the signed message (UTF-8 for Solana, EIP-4361 for EVM)
+ *   - X-Owner-Message: the signed message (Solana: raw UTF-8, or base64 when
+ *       X-Owner-Message-Encoding is base64; EVM: base64-encoded EIP-4361)
  *   - X-Owner-Address: the owner's wallet address (base58 for Solana, 0x for EVM)
+ *
+ * Optional:
+ *   - X-Owner-Message-Encoding: base64 | utf8 -- Solana only. The EVM path is
+ *       always base64 (SIWE messages are multi-line) and does not consult it.
+ *
+ * The signed message must contain an `action:id` token (e.g. `approve:<txId>`)
+ * so a signature cannot be redirected at a different action or a different id.
+ * Disable with security.owner_message_binding=false.
  *
  * v1.2: Solana Ed25519.
  * v1.4.1: EVM SIWE (EIP-4361 + EIP-191) via verifySIWE.
@@ -44,8 +53,56 @@ function loadSodium(): SodiumNative {
 // Types
 // ---------------------------------------------------------------------------
 
+declare module 'hono' {
+  interface ContextVariableMap {
+    /** Owner address proven by the verified signature. */
+    ownerAddress: string;
+    /** The decoded text the owner signed, persisted so approvals stay verifiable. */
+    ownerMessage: string;
+  }
+}
+
+/**
+ * What the signature authorises. Part of the token the owner signs, so a
+ * signature for one action cannot be redirected at another.
+ */
+export type OwnerAuthAction = 'approve' | 'reject' | 'verify';
+
 export interface OwnerAuthDeps {
   db: BetterSQLite3Database<typeof schema>;
+  /** Required: the action this mount authorises. */
+  action: OwnerAuthAction;
+  /**
+   * Reads security.owner_message_binding. Optional for backward compatibility:
+   * when absent the binding check stays on, since the safe default is to require it.
+   */
+  settingsService?: { get(key: string): string };
+}
+
+/**
+ * Decode a message the caller declared as base64, rejecting anything that is not.
+ *
+ * Buffer.from(x, 'base64') silently drops out-of-alphabet characters instead of
+ * failing, so raw text like 'Approve purchase 5 USDC' decodes to 15 unrelated
+ * bytes and only input with no base64 character at all reaches zero length.
+ * Without a round-trip check a mis-declared message would sail through to the
+ * signature check and come back as an unreadable mismatch -- the same failure
+ * mode this middleware refuses to accept for the encoding name itself.
+ */
+function decodeDeclaredBase64(value: string): Buffer {
+  const decoded = Buffer.from(value, 'base64');
+  // Pad before comparing so valid-but-unpadded input ('aGk') still passes.
+  const padded = value.padEnd(Math.ceil(value.length / 4) * 4, '=');
+
+  if (decoded.length === 0 || decoded.toString('base64') !== padded) {
+    throw new WAIaaSError('INVALID_SIGNATURE', {
+      message:
+        'X-Owner-Message is declared base64 but is not valid standard base64. Send base64 of ' +
+        'the exact bytes that were signed, or omit X-Owner-Message-Encoding to send raw UTF-8.',
+    });
+  }
+
+  return decoded;
 }
 
 // ---------------------------------------------------------------------------
@@ -57,10 +114,23 @@ export function createOwnerAuth(deps: OwnerAuthDeps) {
     const signature = c.req.header('X-Owner-Signature');
     const message = c.req.header('X-Owner-Message');
     const ownerAddress = c.req.header('X-Owner-Address');
+    // Normalise before comparing: a header that is present but blank arrives as
+    // '' rather than undefined, which would otherwise be reported as an
+    // unsupported encoding. 'utf-8' is the IANA spelling of Node's 'utf8'.
+    const declaredEncoding = c.req.header('X-Owner-Message-Encoding')?.trim().toLowerCase() || undefined;
+    const messageEncoding = declaredEncoding === 'utf-8' ? 'utf8' : declaredEncoding;
 
     if (!signature || !message || !ownerAddress) {
       throw new WAIaaSError('INVALID_SIGNATURE', {
         message: 'X-Owner-Signature, X-Owner-Message, and X-Owner-Address headers are required',
+      });
+    }
+
+    // Reject unknown encodings rather than silently falling back: a typo would
+    // otherwise surface only as a signature mismatch, which is unreadable.
+    if (messageEncoding !== undefined && messageEncoding !== 'base64' && messageEncoding !== 'utf8') {
+      throw new WAIaaSError('INVALID_SIGNATURE', {
+        message: `Unsupported X-Owner-Message-Encoding '${messageEncoding}'. Use 'base64', 'utf8', or omit the header.`,
       });
     }
 
@@ -113,12 +183,18 @@ export function createOwnerAuth(deps: OwnerAuthDeps) {
       });
     }
 
+    // Captured by whichever branch runs, then checked for the id binding below.
+    let signedText = '';
+
     // Branch verification by chain type
     if (wallet.chain === 'ethereum') {
       // EVM SIWE verification (EIP-4361 + EIP-191)
       // For SIWE: X-Owner-Message is base64-encoded EIP-4361 message (multi-line messages
-      // cannot be sent as raw HTTP header values), X-Owner-Signature is 0x-prefixed hex
+      // cannot be sent as raw HTTP header values), X-Owner-Signature is 0x-prefixed hex.
+      // X-Owner-Message-Encoding is not consulted here -- SIWE messages are always
+      // multi-line, so base64 is the only representation that survives a header.
       const decodedMessage = Buffer.from(message, 'base64').toString('utf8');
+      signedText = decodedMessage;
       const result = await verifySIWE({
         message: decodedMessage,
         signature, // already hex 0x-prefixed from header
@@ -137,7 +213,16 @@ export function createOwnerAuth(deps: OwnerAuthDeps) {
         const sodium = loadSodium();
 
         const signatureBytes = Buffer.from(signature, 'base64');
-        const messageBytes = Buffer.from(message, 'utf8');
+
+        // HTTP header values are latin1 and cannot carry newlines, so a prompt the
+        // owner actually reads in the wallet popup (Korean text, multiple lines)
+        // cannot be sent raw. Opt in with X-Owner-Message-Encoding: base64; omitting
+        // the header keeps the original raw-UTF8 behaviour for existing clients.
+        const messageBytes = messageEncoding === 'base64'
+          ? decodeDeclaredBase64(message)
+          : Buffer.from(message, 'utf8');
+        signedText = messageBytes.toString('utf8');
+
         const publicKeyBytes = decodeBase58(ownerAddress);
 
         // Validate key length
@@ -169,7 +254,33 @@ export function createOwnerAuth(deps: OwnerAuthDeps) {
       }
     }
 
+    // A valid signature alone says "the owner signed something", not "the owner
+    // agreed to this". Nothing else ties the two together: the approve handler
+    // forwards the signature without re-checking it, and GET /v1/nonce is
+    // stateless, so one captured header triple would otherwise authorise every
+    // later PENDING_APPROVAL on this wallet.
+    //
+    // The token is `action:id` rather than a loose mention of the id, for two
+    // reasons. /approve and /reject share the same :id, so matching the id alone
+    // lets a signature the owner made to *refuse* a transaction be replayed to
+    // approve it. And a fixed token keeps the check independent of the prose
+    // around it -- the prompt a person reads can be in any language.
+    const boundToken = `${deps.action}:${paramId}`;
+    if (deps.settingsService?.get('security.owner_message_binding') !== 'false'
+      && !signedText.toLowerCase().includes(boundToken.toLowerCase())) {
+      throw new WAIaaSError('INVALID_SIGNATURE', {
+        message:
+          `Signed message must contain the token '${boundToken}'. It binds the signature to ` +
+          'this action and this id, so it cannot be replayed against another. Add the token to ' +
+          'the text the owner signs, or set security.owner_message_binding=false to accept ' +
+          'unbound signatures.',
+      });
+    }
+
     c.set('ownerAddress', ownerAddress);
+    // Handlers persist this so an approval can be re-verified later. The decoded
+    // text is what was signed; the raw header may be base64 of it.
+    c.set('ownerMessage', signedText);
     await next();
   });
 }

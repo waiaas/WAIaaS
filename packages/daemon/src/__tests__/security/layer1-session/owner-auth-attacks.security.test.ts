@@ -275,8 +275,16 @@ describe('SEC-01-OA Owner Authentication Attacks', () => {
   });
 
   // OA-08: Full replay attack
-  describe('SEC-01-OA-08: full replay attack', () => {
-    it('same valid signature can be replayed (nonce-less stateless auth)', async () => {
+  /**
+   * ownerAuth verifies that the owner signed *something*, and nothing else ties
+   * that signature to what is being approved: the approve handler forwards it
+   * without re-checking, and GET /v1/nonce is stateless. Until v63 a captured
+   * header triple therefore authorised every later approval on the same wallet.
+   * The signed text must now name the id being authorised, which makes each
+   * signature single-purpose.
+   */
+  describe('SEC-01-OA-08: signature reuse across ids', () => {
+    it('rejects a signature whose message does not name the id being authorised', async () => {
       const ownerKp = createOwnerKeyPair();
       const { walletId, sessionId } = seedSecurityTestData(conn.sqlite, {
         ownerAddress: ownerKp.address,
@@ -284,33 +292,54 @@ describe('SEC-01-OA Owner Authentication Attacks', () => {
       });
       const token = await signTestToken(jwtManager, sessionId, walletId);
 
-      const message = 'approve_tx:some-tx-id';
-      const headers = createOwnerHeaders(ownerKp, message);
+      // Valid signature by the real owner -- but over text that names nothing.
+      const headers = createOwnerHeaders(ownerKp, 'approve_tx:some-tx-id');
 
-      // First request -- should succeed
-      const res1 = await app.request(`/v1/owner/${walletId}/approve`, {
+      const res = await app.request(`/v1/owner/${walletId}/approve`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          ...headers,
-        },
-      });
-      expect(res1.status).toBe(200);
-
-      // Replay: same exact signature and message
-      const res2 = await app.request(`/v1/owner/${walletId}/approve`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          ...headers,
-        },
+        headers: { Authorization: `Bearer ${token}`, ...headers },
       });
 
-      // In the current stateless implementation, replay succeeds.
-      // This documents the behavior -- in production, nonce-based replay
-      // protection should be added at the application layer.
-      // The test verifies the current behavior is deterministic.
-      expect(res2.status).toBe(200);
+      expect(res.status).toBe(401);
+      const body = (await res.json()) as { code?: string };
+      expect(body.code).toBe('INVALID_SIGNATURE');
+    });
+
+    it('rejects a signature bound to a different id (the replay this closes)', async () => {
+      const ownerKp = createOwnerKeyPair();
+      const { walletId, sessionId } = seedSecurityTestData(conn.sqlite, {
+        ownerAddress: ownerKp.address,
+        ownerVerified: true,
+      });
+      const token = await signTestToken(jwtManager, sessionId, walletId);
+
+      // Captured from an approval of a different id, then aimed at this one.
+      const headers = createOwnerHeaders(ownerKp, 'approve:00000000-0000-7000-8000-000000000999');
+
+      const res = await app.request(`/v1/owner/${walletId}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, ...headers },
+      });
+
+      expect(res.status).toBe(401);
+    });
+
+    it('accepts a signature that names the id it authorises', async () => {
+      const ownerKp = createOwnerKeyPair();
+      const { walletId, sessionId } = seedSecurityTestData(conn.sqlite, {
+        ownerAddress: ownerKp.address,
+        ownerVerified: true,
+      });
+      const token = await signTestToken(jwtManager, sessionId, walletId);
+
+      const headers = createOwnerHeaders(ownerKp, `approve:${walletId}`);
+
+      const res = await app.request(`/v1/owner/${walletId}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, ...headers },
+      });
+
+      expect(res.status).toBe(200);
     });
   });
 });

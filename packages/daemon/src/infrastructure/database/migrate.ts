@@ -29,6 +29,7 @@ import { migrations as v41to50 } from './migrations/v41-v50.js';
 import { migrations as v51to59 } from './migrations/v51-v59.js';
 import { migrations as v61 } from './migrations/v61.js';
 import { migrations as v62 } from './migrations/v62.js';
+import { migrations as v63 } from './migrations/v63.js';
 
 // Re-export LATEST_SCHEMA_VERSION from schema-ddl
 export { LATEST_SCHEMA_VERSION } from './schema-ddl.js';
@@ -70,6 +71,7 @@ export const MIGRATIONS: Migration[] = [
   ...v51to59,
   ...v61,
   ...v62,
+  ...v63,
 ];
 
 // ---------------------------------------------------------------------------

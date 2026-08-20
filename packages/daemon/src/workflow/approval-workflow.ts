@@ -183,7 +183,7 @@ export class ApprovalWorkflow {
    * @throws WAIaaSError APPROVAL_NOT_FOUND if no pending approval exists
    * @throws WAIaaSError APPROVAL_TIMEOUT if the approval has expired
    */
-  approve(txId: string, ownerSignature: string): ApproveResult {
+  approve(txId: string, ownerSignature: string, ownerMessage?: string): ApproveResult {
     const txn = this.sqlite.transaction(() => {
       // Find pending approval
       const approval = this.sqlite
@@ -207,9 +207,9 @@ export class ApprovalWorkflow {
       // Set approvedAt + ownerSignature
       this.sqlite
         .prepare(
-          'UPDATE pending_approvals SET approved_at = ?, owner_signature = ? WHERE id = ?',
+          'UPDATE pending_approvals SET approved_at = ?, owner_signature = ?, owner_message = ? WHERE id = ?',
         )
-        .run(now, ownerSignature, approval.id);
+        .run(now, ownerSignature, ownerMessage ?? null, approval.id);
 
       // Transition transaction to EXECUTING and clear reserved_amount + reserved_amount_usd
       this.sqlite
@@ -243,7 +243,7 @@ export class ApprovalWorkflow {
    * @returns The transaction ID and rejection timestamp
    * @throws WAIaaSError APPROVAL_NOT_FOUND if no pending approval exists
    */
-  reject(txId: string): RejectResult {
+  reject(txId: string, ownerSignature?: string, ownerMessage?: string): RejectResult {
     const txn = this.sqlite.transaction(() => {
       // Find pending approval
       const approval = this.sqlite
@@ -261,9 +261,13 @@ export class ApprovalWorkflow {
       const now = Math.floor(Date.now() / 1000);
 
       // Set rejectedAt
+      // Record what the owner signed for a rejection too: refusing is a decision
+      // that needs the same audit trail as consenting.
       this.sqlite
-        .prepare('UPDATE pending_approvals SET rejected_at = ? WHERE id = ?')
-        .run(now, approval.id);
+        .prepare(
+          'UPDATE pending_approvals SET rejected_at = ?, owner_signature = ?, owner_message = ? WHERE id = ?',
+        )
+        .run(now, ownerSignature ?? null, ownerMessage ?? null, approval.id);
 
       // Transition transaction to CANCELLED and clear reserved_amount + reserved_amount_usd
       this.sqlite

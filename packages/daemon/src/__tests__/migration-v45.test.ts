@@ -72,7 +72,7 @@ describe('DB v45 Migration: userop_builds', () => {
 
   // Test 1: LATEST_SCHEMA_VERSION === 45
   it('T1: LATEST_SCHEMA_VERSION is 59', () => {
-    expect(LATEST_SCHEMA_VERSION).toBe(62);
+    expect(LATEST_SCHEMA_VERSION).toBe(63);
   });
 
   // Test 2: userop_builds table exists with 9 columns
@@ -158,7 +158,7 @@ describe('DB v45 Migration: userop_builds', () => {
     runMigrations(sqlite);
 
     expect(tableExists(sqlite, 'userop_builds')).toBe(true);
-    expect(getMaxVersion(sqlite)).toBe(62);
+    expect(getMaxVersion(sqlite)).toBe(63);
 
     const cols = getTableColumns(sqlite, 'userop_builds');
     expect(cols).toContain('id');

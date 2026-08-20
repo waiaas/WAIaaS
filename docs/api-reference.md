@@ -50,14 +50,17 @@ curl http://127.0.0.1:3100/v1/wallet/balance \
 
 ### ownerAuth (Fund Owner)
 
-**Headers:** `X-Owner-Signature: <signature>` + `X-Owner-Message: <message>`
+**Headers:** `X-Owner-Signature: <signature>` + `X-Owner-Message: <message>` + `X-Owner-Address: <address>`
 
 Used by the fund owner (human) for high-value transaction approval, kill switch recovery, and owner verification. Supports SIWS (Sign-In with Solana) and SIWE (Sign-In with Ethereum) signature schemes.
+
+All three headers are required; a request missing any of them is rejected with `INVALID_SIGNATURE`. The signed message must also contain an `action:id` token (`approve:<tx-id>`, `reject:<tx-id>`, `verify:<wallet-id>`), so a signature cannot be reused for a different transaction or redirected from reject to approve (`security.owner_message_binding`).
 
 ```bash
 curl -X POST http://127.0.0.1:3100/v1/transactions/<tx-id>/approve \
   -H "X-Owner-Signature: <ed25519-or-secp256k1-signature>" \
-  -H "X-Owner-Message: <signed-message>"
+  -H "X-Owner-Message: approve:<tx-id>" \
+  -H "X-Owner-Address: <owner-address>"
 ```
 
 ## OpenAPI Specification

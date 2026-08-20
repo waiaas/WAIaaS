@@ -78,8 +78,42 @@ describe('WAIaaSOwnerClient', () => {
       const headers = approveOpts.headers as Record<string, string>;
 
       expect(headers['X-Owner-Address']).toBe(mockOwnerAddress);
-      expect(headers['X-Owner-Message']).toBe(mockNonce);
       expect(headers['X-Owner-Signature']).toBeDefined();
+
+      // The daemon rejects a signature that does not name what it authorises.
+      // Asserting only "message === nonce" is what let that break unnoticed:
+      // these tests mock fetch, so nothing here reaches the real check.
+      expect(headers['X-Owner-Message']).toContain('approve:tx-1');
+      expect(headers['X-Owner-Message']).toContain(mockNonce);
+    });
+
+    it('binds reject to the reject action, not approve', async () => {
+      const client = createClient();
+      setupNonceAndResponse({ id: 'tx-1', status: 'CANCELLED', rejectedAt: 1707000000 });
+
+      await client.reject('tx-1');
+
+      const rejectOpts = fetchSpy.mock.calls[1]![1] as RequestInit;
+      const headers = rejectOpts.headers as Record<string, string>;
+
+      // A reject signature must not be usable at /approve, so the token differs.
+      expect(headers['X-Owner-Message']).toContain('reject:tx-1');
+      expect(headers['X-Owner-Message']).not.toContain('approve:tx-1');
+    });
+
+    it('signs the exact bytes it sends', async () => {
+      const client = createClient();
+      setupNonceAndResponse({ id: 'tx-9', status: 'EXECUTING', approvedAt: 1707000000 });
+
+      await client.approve('tx-9');
+
+      const approveOpts = fetchSpy.mock.calls[1]![1] as RequestInit;
+      const headers = approveOpts.headers as Record<string, string>;
+      const signed = new TextDecoder().decode(mockSignMessage.mock.calls[0]![0] as Uint8Array);
+
+      // Signature verification happens over the decoded header, so a mismatch
+      // between what is signed and what is sent is an instant 401.
+      expect(signed).toBe(headers['X-Owner-Message']);
     });
 
     it('should sign the nonce message and encode signature as base64', async () => {
@@ -91,7 +125,9 @@ describe('WAIaaSOwnerClient', () => {
       // signMessage should have been called with the nonce encoded as Uint8Array
       expect(mockSignMessage).toHaveBeenCalledTimes(1);
       const signedMessage = mockSignMessage.mock.calls[0]![0] as Uint8Array;
-      expect(new TextDecoder().decode(signedMessage)).toBe(mockNonce);
+      const decoded = new TextDecoder().decode(signedMessage);
+      expect(decoded).toContain(mockNonce);
+      expect(decoded).toContain('approve:tx-1');
 
       // Verify signature is base64-encoded
       const approveOpts = fetchSpy.mock.calls[1]![1] as RequestInit;

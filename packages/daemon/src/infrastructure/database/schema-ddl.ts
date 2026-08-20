@@ -54,7 +54,7 @@ export const LEGACY_NETWORK_NORMALIZE: Record<string, string> = {
  * pushSchema() records this version for fresh databases so migrations are skipped.
  * Increment this whenever DDL statements are updated to match a new migration.
  */
-export const LATEST_SCHEMA_VERSION = 62;
+export const LATEST_SCHEMA_VERSION = 63;
 
 export function getCreateTableStatements(): string[] {
   return [
@@ -161,7 +161,7 @@ export function getCreateTableStatements(): string[] {
   updated_at INTEGER NOT NULL
 )`,
 
-    // Table 5: pending_approvals (approval_channel added in v16, approval_type added in v39, typed_data_json added in v40)
+    // Table 5: pending_approvals (approval_channel added in v16, approval_type added in v39, typed_data_json added in v40, owner_message added in v63)
     `CREATE TABLE IF NOT EXISTS pending_approvals (
   id TEXT PRIMARY KEY,
   tx_id TEXT NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
@@ -173,6 +173,7 @@ export function getCreateTableStatements(): string[] {
   approval_channel TEXT DEFAULT 'rest_api',
   approval_type TEXT NOT NULL DEFAULT 'SIWE' CHECK (approval_type IN ('SIWE', 'EIP712')),
   typed_data_json TEXT,
+  owner_message TEXT,
   created_at INTEGER NOT NULL
 )`,
 

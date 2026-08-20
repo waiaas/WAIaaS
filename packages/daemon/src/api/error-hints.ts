@@ -12,7 +12,7 @@ export const errorHintMap: Record<string, string> = {
   INVALID_TOKEN: 'Create a new session via POST /v1/sessions with masterAuth credentials.',
   TOKEN_EXPIRED: 'Renew the session via PUT /v1/sessions/{id}/renew, or create a new session.',
   SESSION_REVOKED: 'Create a new session via POST /v1/sessions with masterAuth credentials.',
-  INVALID_SIGNATURE: 'Verify the Ed25519 signature format and the nonce from GET /v1/nonce.',
+  INVALID_SIGNATURE: 'Check the signature format and that the signed message contains the required action:id token. The error message names the exact token expected.',
   INVALID_NONCE: 'Fetch a fresh nonce from GET /v1/nonce and retry within 5 minutes.',
   INVALID_MASTER_PASSWORD: 'Check the X-Master-Password header value.',
   // MASTER_PASSWORD_LOCKED: no hint (wait 30min, no action)

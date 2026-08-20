@@ -4,9 +4,10 @@
  * Returns a random nonce for ownerAuth signature construction.
  * This endpoint is public (no auth required).
  *
- * The nonce is stateless -- v1.3 does not require server-side nonce storage.
- * The ownerAuth middleware validates Ed25519 signatures independently.
- * SDK/MCP clients use this nonce to construct ownerAuth request payloads.
+ * The nonce is stateless -- nothing is stored or consumed server-side, so it does
+ * not by itself prevent replay. What does is the `action:id` token that ownerAuth
+ * requires inside the signed message; clients fold the nonce in alongside it so
+ * two authorisations of the same id are not byte-identical.
  *
  * @see docs/52-auth-redesign.md
  */

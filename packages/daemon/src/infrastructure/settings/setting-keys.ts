@@ -139,6 +139,9 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
   { key: 'security.cors_origins', category: 'security', configPath: 'security.cors_origins', defaultValue: '["http://localhost:3100","http://127.0.0.1:3100"]', isCredential: false, label: 'CORS Origins', description: 'Allowed CORS origins (JSON array of URLs)' },
   { key: 'security.policy_defaults_delay_seconds', category: 'security', configPath: 'security.policy_defaults_delay_seconds', defaultValue: '300', isCredential: false, label: 'Policy Defaults Delay Seconds', description: 'Default delay duration for DELAY tier transactions' },
   { key: 'security.policy_defaults_approval_timeout', category: 'security', configPath: 'security.policy_defaults_approval_timeout', defaultValue: '3600', isCredential: false, label: 'Policy Defaults Approval Timeout', description: 'Timeout duration in seconds' },
+  // DB-only: no config.toml counterpart. Turning this off restores pre-v63 ownerAuth,
+  // where a captured signature could authorise any later approval on the same wallet.
+  { key: 'security.owner_message_binding', category: 'security', configPath: 'security.owner_message_binding', defaultValue: 'true', isCredential: false, label: 'Owner Message Binding', description: 'Require the signed owner message to reference the transaction or wallet id being authorised' },
 
   // --- policy default deny toggles (Phase 116) ---
   { key: 'policy.default_deny_tokens', category: 'policy', configPath: 'security.default_deny_tokens', defaultValue: 'true', isCredential: false, label: 'Default Deny Tokens', description: 'Deny all tokens not in ALLOWED_TOKENS policy' },

@@ -532,12 +532,45 @@ Response (200):
 
 #### POST /v1/transactions/{id}/approve -- Approve Transaction (ownerAuth)
 
-Owner approves a pending-approval transaction. Requires **ownerAuth** (SIWS/SIWE signature via `X-Owner-Signature` header).
+Owner approves a pending-approval transaction. Requires **ownerAuth**: the owner signs the approval prompt and sends the signature, the prompt, and the owner address together.
+
+| Header | Required | Value |
+|---|---|---|
+| `X-Owner-Signature` | yes | Solana: base64 Ed25519 detached signature. EVM: `0x`-prefixed hex |
+| `X-Owner-Message` | yes | The exact text that was signed |
+| `X-Owner-Address` | yes | Must match the wallet's registered owner |
+| `X-Owner-Message-Encoding` | no | `base64` or `utf8`. Omit for `utf8` |
+
+**The signed message must contain an `action:id` token.** ownerAuth otherwise only proves the owner signed something, not that they agreed to *this*: one captured signature would approve every later pending approval on the wallet, and because `/approve` and `/reject` share the same id, a signature made to refuse a transaction could be replayed to approve it.
+
+| Endpoint | Required token |
+|---|---|
+| `POST /v1/transactions/{id}/approve` | `approve:{id}` |
+| `POST /v1/transactions/{id}/reject` | `reject:{id}` |
+| `POST /v1/wallets/{id}/owner/verify` | `verify:{id}` |
+
+The token can sit anywhere in the message, so the prompt a person reads can be in any language and the token rides along with it. Matching is case-insensitive. A message without the token is rejected with `INVALID_SIGNATURE`, and the error names the exact token expected. For SIWE the token goes in the `statement` field. Operators can turn this off with `security.owner_message_binding=false` to accept unbound signatures from older clients.
+
+`X-Owner-Message-Encoding: base64` lets the signed prompt contain non-ASCII text and line breaks, which a raw header value cannot carry. Use it whenever the prompt is something a person reads in their wallet popup. EVM/SIWE messages are always base64 regardless of this header, since they are multi-line by definition.
 
 ```bash
+# ASCII prompt (encoding header omitted)
 curl -s -X POST http://localhost:3100/v1/transactions/01958f3c-9999-7000-8000-abcdef999999/approve \
-  -H 'X-Owner-Signature: <siws-or-siwe-signature>'
+  -H 'X-Owner-Signature: <base64-ed25519-signature>' \
+  -H 'X-Owner-Message: approve:01958f3c-9999-7000-8000-abcdef999999 -- 5 USDC' \
+  -H 'X-Owner-Address: <owner-address>'
+
+# Human-readable prompt with non-ASCII text or newlines
+curl -s -X POST http://localhost:3100/v1/transactions/01958f3c-9999-7000-8000-abcdef999999/approve \
+  -H 'X-Owner-Signature: <base64-ed25519-signature>' \
+  -H "X-Owner-Message: $(printf '금액: 5 USDC\napprove:01958f3c-9999-7000-8000-abcdef999999' | base64 | tr -d '\n')" \
+  -H 'X-Owner-Message-Encoding: base64' \
+  -H 'X-Owner-Address: <owner-address>'
 ```
+
+The signature must be made over the **decoded** bytes, not the base64 string.
+
+`| tr -d '\n'` is not optional. GNU coreutils `base64` wraps at 76 columns and `$(...)` strips only trailing newlines, so any prompt over 57 bytes ends up with a line break inside the header value and the request is rejected before it reaches the daemon. macOS/BSD `base64` does not wrap, which is why this only shows up on Linux. (`base64 -w0` does the same job but is GNU-only.)
 
 Response (200):
 ```json
@@ -554,8 +587,12 @@ Owner rejects a pending-approval transaction. Requires **ownerAuth**.
 
 ```bash
 curl -s -X POST http://localhost:3100/v1/transactions/01958f3c-9999-7000-8000-abcdef999999/reject \
-  -H 'X-Owner-Signature: <siws-or-siwe-signature>'
+  -H 'X-Owner-Signature: <base64-ed25519-signature>' \
+  -H 'X-Owner-Message: reject:01958f3c-9999-7000-8000-abcdef999999' \
+  -H 'X-Owner-Address: <owner-address>'
 ```
+
+Same headers as approve, including the optional `X-Owner-Message-Encoding: base64`.
 
 Response (200):
 ```json

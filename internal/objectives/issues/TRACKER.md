@@ -48,6 +48,9 @@
 | 501 | BUG | MEDIUM | 조직 이전 후 남은 minhoyoo-iotrust 참조와 GHCR 패키지 접근 불가 | — | OPEN | — |
 | 502 | BUG | HIGH | Sepolia RPC 기본값이 빌트인 풀과 어긋나 스마트 계정 생성이 500으로 실패 | — | FIXED | 2026-08-15 |
 | 503 | BUG | HIGH | config.rpc 직접 참조 경로가 RpcPool 폴백과 Admin Settings 핫리로드를 모두 우회 | — | 부분 FIXED | 2026-08-18 |
+| 504 | ENHANCEMENT | MEDIUM | Solana owner 승인 문구가 HTTP 헤더 제약으로 한 줄 ASCII만 가능 | — | FIXED | 2026-08-18 |
+| 505 | BUG | MEDIUM | 승인 시 서명된 메시지를 저장하지 않아 사후 재검증 불가 | — | FIXED | 2026-08-19 |
+| 506 | BUG | CRITICAL | owner 승인 서명이 승인 대상에 묶이지 않아 재사용 가능 | — | FIXED | 2026-08-19 |
 
 ## Type Legend
 
@@ -61,7 +64,7 @@
 
 - **OPEN:** 2
 - **PLANNED:** 0
-- **FIXED:** 493
+- **FIXED:** 496
 - **WONTFIX:** 1
-- **Total:** 497
+- **Total:** 500
 - **Archived:** 468 (001–468)

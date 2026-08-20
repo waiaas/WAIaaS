@@ -1090,7 +1090,7 @@ export function transactionRoutes(deps: TransactionRouteDeps): OpenAPIHono {
       const ownerSignature = c.req.header('X-Owner-Signature') ?? '';
 
       // Approve the transaction
-      const result = approvalWorkflow.approve(txId, ownerSignature);
+      const result = approvalWorkflow.approve(txId, ownerSignature, c.get('ownerMessage'));
 
       // ownerAuth success -> mark owner verified (GRACE -> LOCKED auto-transition)
       try {
@@ -1130,7 +1130,11 @@ export function transactionRoutes(deps: TransactionRouteDeps): OpenAPIHono {
       }
 
       // Reject the transaction
-      const result = approvalWorkflow.reject(txId);
+      const result = approvalWorkflow.reject(
+        txId,
+        c.req.header('X-Owner-Signature') ?? '',
+        c.get('ownerMessage'),
+      );
 
       // ownerAuth success -> mark owner verified (GRACE -> LOCKED auto-transition)
       try {
